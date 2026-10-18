@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Godji Zapret</title>
+    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <button class="close-btn" id="closeBtn"></button>
+
+    <div class="app-window">
+        <div class="drag-region"></div>
+        <button class="admin-btn" id="adminBtn">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        </button>
+        <div class="button-container" id="buttonContainer">
+            <div class="glow-outer"></div>
+            <div class="glow-ring"></div>
+            <div class="particles" id="particles"></div>
+            <button class="power-btn" id="powerBtn" aria-label="Включить защиту" aria-pressed="false"><span class="logo-text">Godji</span></button>
+            <div class="telegram-summary" id="telegramSummary" role="status">TELEGRAM · ВЫКЛЮЧЕН</div>
+            <div class="status" id="statusText">НАЖМИТЕ ДЛЯ ВКЛЮЧЕНИЯ</div>
+        </div>
+    </div>
+
+    <div class="admin-panel" id="adminPanel">
+        <button class="close-admin-btn" id="closeAdminBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+        <div class="admin-panel-content">
+            <h2 class="admin-title">ПАНЕЛЬ УПРАВЛЕНИЯ</h2>
+
+
+                <div class="settings-section telegram-section">
+                    <div class="settings-title">TELEGRAM · TG WS PROXY</div>
+                    <div class="telegram-state" id="telegramStatus" role="status">Проверка состояния…</div>
+                    <div class="telegram-controls">
+                        <button class="mini-btn" data-tg="start">ЗАПУСТИТЬ</button>
+                        <button class="mini-btn" data-tg="stop">ОСТАНОВИТЬ</button>
+                        <button class="mini-btn" data-tg="restart">ПЕРЕЗАПУСТИТЬ</button>
+                        <button class="mini-btn" data-tg="connect">ПОДКЛЮЧИТЬ TELEGRAM</button>
+                        <button class="mini-btn" data-tg="settings">НАСТРОЙКИ</button>
+                        <button class="mini-btn" data-tg="logs">ЖУРНАЛ</button>
+                    </div>
+                    <p class="telegram-hint">Кнопка Godji управляет Zapret и Telegram-прокси вместе. При первом подключении подтвердите прокси в Telegram.</p>
+                </div>
+            <div class="admin-buttons" id="adminButtons">
+                <button class="admin-action-btn update-btn" id="updateBtn">
+                    <div class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></div>
+                    <span>ПРОВЕРИТЬ ОБНОВЛЕНИЕ</span><div class="btn-glow"></div>
+                </button>
+                <button class="admin-action-btn app-btn" id="updateAppBtn">
+                    <div class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="M8 8l4-4 4 4"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg></div>
+                    <span>ОБНОВЛЕНИЕ GODJI</span><div class="btn-glow"></div>
+                </button>
+                <button class="admin-action-btn test-btn" id="testBtn">
+                    <div class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg></div>
+                    <span>ТЕСТ ПРОТОКОЛОВ</span><div class="btn-glow"></div>
+                </button>
+                <button class="admin-action-btn download-btn" id="downloadZapretBtn">
+                    <div class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    <span>СКАЧАТЬ ZAPRET</span><div class="btn-glow"></div>
+                </button>
+            </div>
+
+            <div class="test-progress-container" id="testProgressContainer" style="display: none;">
+                <div class="test-progress-bar"><div class="test-progress-fill" id="testProgressFill"></div></div>
+                <div class="test-progress-text" id="testProgressText">0%</div>
+            </div>
+
+            <div class="admin-settings" id="adminSettings">
+                <div class="settings-section">
+                    <div class="settings-title">СТРАТЕГИЯ ОБХОДА</div>
+                    <div class="strategy-row">
+                        <select class="strategy-select" id="strategySelect"></select>
+                        <button class="mini-btn" id="applyStrategy">ПРИМЕНИТЬ</button>
+                    </div>
+                    <div class="current-strategy" id="currentStrategy">Текущая: —</div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-title">GAME FILTER</div>
+                    <div class="seg" id="gameSeg">
+                        <button class="seg-btn" data-mode="disabled">OFF</button>
+                        <button class="seg-btn" data-mode="all">ALL</button>
+                        <button class="seg-btn" data-mode="tcp">TCP</button>
+                        <button class="seg-btn" data-mode="udp">UDP</button>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-title">IPSET FILTER</div>
+                    <div class="seg" id="ipsetSeg">
+                        <button class="seg-btn" data-mode="loaded">LOADED</button>
+                        <button class="seg-btn" data-mode="none">NONE</button>
+                        <button class="seg-btn" data-mode="any">ANY</button>
+                    </div>
+                    <button class="mini-btn wide" id="updateIpsetBtn">ОБНОВИТЬ СПИСОК IPSET</button>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-title">HOSTS</div>
+                    <button class="mini-btn wide" id="updateHostsBtn">ОБНОВИТЬ HOSTS</button>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-title">ДИАГНОСТИКА СИСТЕМЫ</div>
+                    <button class="admin-action-btn test-btn diag-trigger" id="diagBtn">
+                        <div class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c2.12 0 4.07.74 5.61 1.97"/></svg></div>
+                        <span>ЗАПУСТИТЬ ДИАГНОСТИКУ</span><div class="btn-glow"></div>
+                    </button>
+                    <div class="diag-list" id="diagResults"></div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-title">СЛУЖБЫ СИСТЕМЫ</div>
+                    <button class="mini-btn wide danger-btn" id="removeServiceBtn">УДАЛИТЬ СЕРВИС ZAPRET</button>
+                    <button class="mini-btn wide scan-btn" id="scanServicesBtn">СКАН КОНФЛИКТУЮЩИХ СЛУЖБ</button>
+                    <div class="service-list" id="serviceList"></div>
+                    <button class="mini-btn wide danger-btn" id="removeFoundBtn" style="display:none;">УДАЛИТЬ ВСЕ НАЙДЕННЫЕ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

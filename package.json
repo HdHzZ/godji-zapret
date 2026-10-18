@@ -1,0 +1,94 @@
+{
+  "name": "godji-zapret",
+  "productName": "GodjiZapret",
+  "version": "1.2.2",
+  "description": "Godji Zapret Manager",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "icon": "node scripts/make-icon.js",
+    "build": "electron-builder --win",
+    "build:zip": "electron-builder --win zip",
+    "build:portable": "electron-builder --win portable",
+    "build:installer": "electron-builder --win nsis",
+    "test": "node --test tests/*.test.js",
+    "prepare:core": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-core.ps1",
+    "build:telegram": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-telegram.ps1",
+    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish-release.ps1"
+  },
+  "build": {
+    "appId": "com.godji.zapret",
+    "productName": "GodjiZapret",
+    "directories": {
+      "output": "dist"
+    },
+    "afterPack": "./scripts/patch-manifest.js",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "zip",
+        "portable"
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "GodjiZapret-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "GodjiZapret-${version}-portable.${ext}"
+    },
+    "extraResources": [
+      {
+        "from": "tg-proxy",
+        "to": "tg-proxy"
+      },
+      {
+        "from": "vendor/tg-ws-proxy/LICENSE",
+        "to": "tg-proxy/LICENSE"
+      }
+    ],
+    "extraFiles": [
+      {
+        "from": "zapret-core",
+        "to": "zapret-core",
+        "filter": [
+          "**/*",
+          "!_godji_run*",
+          "!_godji_copy.bat",
+          "!**/*.log"
+        ]
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": [
+        "ru_RU"
+      ],
+      "language": "1049",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Godji Zapret",
+      "uninstallDisplayName": "Godji Zapret",
+      "runAfterFinish": false,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "GodjiZapret-${version}-Setup.${ext}"
+    }
+  },
+  "dependencies": {
+    "extract-zip": "^2.0.1"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0",
+    "rcedit": "^5.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HdHzZ/godji-zapret.git"
+  },
+  "homepage": "https://github.com/HdHzZ/godji-zapret"
+}

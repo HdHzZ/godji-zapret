@@ -1,0 +1,302 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: transparent;
+    width: 100vw; height: 100vh;
+    position: relative; overflow: hidden;
+    font-family: 'Black Ops One', cursive;
+    color: white;
+}
+
+.app-window {
+    position: absolute;
+    top: 38px; left: 18px;
+    width: 400px; height: 520px;
+    border-radius: 25px;
+    background: linear-gradient(145deg, #1a1a2e 0%, #0f0f1a 100%);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+
+.close-btn {
+    position: absolute; top: 4px; right: 4px;
+    width: 30px; height: 30px;
+    background: rgba(26, 26, 46, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px; cursor: pointer;
+    display: flex; justify-content: center; align-items: center;
+    transition: all 0.3s ease; z-index: 400;
+    -webkit-app-region: no-drag;
+}
+.close-btn:hover { background: #ff4444; border-color: #ff4444; transform: rotate(90deg) scale(1.1); box-shadow: 0 0 15px rgba(255, 68, 68, 0.6); }
+.close-btn::before, .close-btn::after { content: ''; position: absolute; width: 15px; height: 2px; background: #ccc; border-radius: 2px; transition: all 0.3s ease; }
+.close-btn::before { transform: rotate(45deg); }
+.close-btn::after { transform: rotate(-45deg); }
+.close-btn:hover::before, .close-btn:hover::after { background: white; }
+
+/* когда открыта админка — прячем серый крестик программы,
+   чтобы он не слипался с красным крестиком админки */
+body.admin-open .close-btn { opacity: 0; pointer-events: none; }
+
+.admin-btn {
+    position: absolute; bottom: 18px; right: 18px;
+    width: 40px; height: 40px;
+    background: rgba(26, 26, 46, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px; cursor: pointer;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    gap: 5px; padding: 8px; transition: all 0.3s ease; z-index: 200;
+    -webkit-app-region: no-drag;
+}
+.admin-btn:hover { background: rgba(0, 255, 136, 0.2); border-color: #00ff88; box-shadow: 0 0 15px rgba(0, 255, 136, 0.4); }
+.admin-btn .dot { width: 6px; height: 6px; background: #888; border-radius: 50%; transition: all 0.3s ease; }
+.admin-btn:hover .dot { width: 20px; height: 2px; background: #00ff88; border-radius: 2px; }
+.admin-btn:hover .dot:nth-child(1) { transform: translateY(-2px); }
+.admin-btn:hover .dot:nth-child(3) { transform: translateY(2px); }
+
+.button-container {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px; height: 300px;
+    display: flex; justify-content: center; align-items: center;
+    -webkit-app-region: no-drag;
+}
+
+.power-btn {
+    width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #2a2a3e 0%, #0a0a0f 70%);
+    position: relative; display: flex; justify-content: center; align-items: center;
+    cursor: pointer; border: none; outline: none;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
+    transition: transform 0.2s; z-index: 10;
+}
+.power-btn:active { transform: scale(0.95); }
+
+.logo-text { font-size: 42px; color: #ffffff; letter-spacing: 3px; z-index: 2; text-shadow: 0 0 10px rgba(255,255,255,0.3); transition: text-shadow 0.5s; }
+
+/* ===== КОЛЬЦО: cyan<->magenta + бегущие блики (волна) ===== */
+.glow-ring {
+    position: absolute; width: 240px; height: 240px; border-radius: 50%;
+    background: conic-gradient(from 0deg,
+        rgba(0,229,255,1)   0deg,
+        rgba(255,255,255,0.95) 22deg,
+        rgba(0,119,255,1)   70deg,
+        rgba(122,0,255,1)   125deg,
+        rgba(255,0,212,1)   180deg,
+        rgba(255,255,255,0.95) 202deg,
+        rgba(255,68,170,1)  250deg,
+        rgba(176,0,255,1)   310deg,
+        rgba(0,229,255,1)   360deg);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    z-index: 5;
+}
+.glow-ring::before {
+    content: '';
+    position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(circle, transparent 64%, #0f0f13 66%);
+}
+
+.glow-outer {
+    position: absolute; width: 262px; height: 262px; border-radius: 50%;
+    background: conic-gradient(from 0deg,
+        rgba(0,229,255,1)   0deg,
+        rgba(255,255,255,0.9) 22deg,
+        rgba(0,119,255,1)   70deg,
+        rgba(122,0,255,1)   125deg,
+        rgba(255,0,212,1)   180deg,
+        rgba(255,255,255,0.9) 202deg,
+        rgba(255,68,170,1)  250deg,
+        rgba(176,0,255,1)   310deg,
+        rgba(0,229,255,1)   360deg);
+    filter: blur(20px);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    z-index: 1;
+}
+
+.particles { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.particle { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #ffffff; opacity: 0; box-shadow: 0 0 6px #ffffff, 0 0 10px #00e5ff, 0 0 14px #ff00d4; }
+
+.button-container.active .glow-ring {
+    opacity: 1;
+    animation:
+        fillRing 2s cubic-bezier(0.4, 0, 0.2, 1) forwards,
+        rotateRing 8s linear infinite,
+        ringWave 3s ease-in-out infinite;
+}
+.button-container.active .glow-outer {
+    opacity: 0.7;
+    animation:
+        rotateRingSlow 12s linear infinite,
+        glowPulse 4s ease-in-out infinite;
+}
+.button-container.active .logo-text { text-shadow: 0 0 20px rgba(255,255,255,0.85), 0 0 40px rgba(255,255,255,0.4); }
+.button-container.active .particle { animation: particleFloat 3s infinite ease-in-out; }
+
+@keyframes rotateRing { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes rotateRingSlow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes ringWave {
+    0%, 100% { filter: brightness(1) saturate(1.1); }
+    50%      { filter: brightness(1.45) saturate(1.4); }
+}
+@keyframes glowPulse {
+    0%, 100% { filter: blur(18px); opacity: 0.55; }
+    50%      { filter: blur(27px); opacity: 0.85; }
+}
+@keyframes fillRing {
+    0%   { clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%); }
+    100% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%); }
+}
+@keyframes particleFloat {
+    0%   { opacity: 0; transform: translate(0, 0) scale(0); }
+    10%  { opacity: 1; transform: scale(1); }
+    90%  { opacity: 0.8; }
+    100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+}
+
+.status { position: absolute; bottom: -55px; color: #666; font-size: 14px; letter-spacing: 2px; transition: color 0.5s; white-space: nowrap; }
+.button-container.active .status { color: #00ff88; text-shadow: 0 0 10px rgba(0,255,136,0.5); }
+
+.drag-region { position: absolute; top: 0; left: 0; width: 100%; height: 45px; -webkit-app-region: drag; z-index: 150; }
+
+/* ===== АДМИН ПАНЕЛЬ (overflow:hidden = страховка от торчащих элементов) ===== */
+.admin-panel {
+    position: fixed; top: 0; right: -400px;
+    width: 380px; height: 100vh;
+    background: linear-gradient(145deg, #1a1a2e 0%, #0f0f1a 100%);
+    border-radius: 25px 0 0 25px;
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    transition: right 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 300;
+    display: flex; align-items: stretch;
+    overflow: hidden;
+}
+.admin-panel.active { right: 0; }
+.admin-panel-content { width: 100%; position: relative; overflow-y: auto; overflow-x: hidden; padding: 55px 25px 30px; }
+.admin-panel-content::-webkit-scrollbar { width: 6px; }
+.admin-panel-content::-webkit-scrollbar-track { background: transparent; }
+.admin-panel-content::-webkit-scrollbar-thumb { background: rgba(0,255,136,0.3); border-radius: 3px; }
+
+.admin-title { font-size: 24px; color: #00ff88; text-align: center; margin-bottom: 30px; letter-spacing: 3px; text-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
+
+
+.submit-btn { width: 100%; padding: 15px; background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%); border: none; border-radius: 12px; color: #0f0f1a; font-size: 16px; font-family: 'Black Ops One', cursive; letter-spacing: 2px; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; }
+.submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0, 255, 136, 0.4); }
+.submit-btn:active { transform: translateY(0); }
+
+@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+
+.admin-buttons { display: flex; flex-direction: column; gap: 16px; }
+
+.admin-action-btn { position: relative; width: 100%; padding: 18px; background: rgba(10, 10, 15, 0.8); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 15px; color: white; font-size: 15px; font-family: 'Black Ops One', cursive; letter-spacing: 2px; cursor: pointer; display: flex; align-items: center; gap: 15px; transition: all 0.3s ease; overflow: hidden; }
+.btn-icon { width: 36px; height: 36px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+.btn-icon svg { width: 28px; height: 28px; stroke: currentColor; transition: all 0.3s ease; }
+.btn-glow { position: absolute; top: 50%; left: 50%; width: 0; height: 0; border-radius: 50%; transform: translate(-50%, -50%); transition: all 0.5s ease; opacity: 0; }
+
+.update-btn { border-color: rgba(0, 136, 255, 0.3); }
+.update-btn .btn-icon { color: #0088ff; }
+.update-btn .btn-glow { background: radial-gradient(circle, rgba(0, 136, 255, 0.6) 0%, transparent 70%); }
+.update-btn:hover { border-color: #0088ff; box-shadow: 0 0 30px rgba(0, 136, 255, 0.4); transform: translateX(5px); }
+.update-btn:hover .btn-glow { width: 300px; height: 300px; opacity: 0.3; }
+.update-btn:hover .btn-icon svg { transform: rotate(180deg); stroke: #00aaff; }
+
+.test-btn { border-color: rgba(136, 0, 255, 0.3); }
+.test-btn .btn-icon { color: #8800ff; }
+.test-btn .btn-glow { background: radial-gradient(circle, rgba(136, 0, 255, 0.6) 0%, transparent 70%); }
+.test-btn:hover { border-color: #8800ff; box-shadow: 0 0 30px rgba(136, 0, 255, 0.4); transform: translateX(5px); }
+.test-btn:hover .btn-glow { width: 300px; height: 300px; opacity: 0.3; }
+.test-btn:hover .btn-icon svg { animation: pulse 1s ease infinite; stroke: #aa44ff; }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+
+.download-btn { border-color: rgba(0, 255, 136, 0.3); }
+.download-btn .btn-icon { color: #00ff88; }
+.download-btn .btn-glow { background: radial-gradient(circle, rgba(0, 255, 136, 0.6) 0%, transparent 70%); }
+.download-btn:hover { border-color: #00ff88; box-shadow: 0 0 30px rgba(0, 255, 136, 0.4); transform: translateX(5px); }
+.download-btn:hover .btn-glow { width: 300px; height: 300px; opacity: 0.3; }
+.download-btn:hover .btn-icon svg { animation: bounce 1s ease infinite; stroke: #00ffaa; }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+.admin-action-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+.close-admin-btn { position: absolute; top: 16px; right: 16px; width: 35px; height: 35px; background: rgba(255, 68, 68, 0.2); border: 1px solid rgba(255, 68, 68, 0.5); border-radius: 8px; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: all 0.3s ease; color: #ff4444; z-index: 10; }
+.close-admin-btn:hover { background: #ff4444; color: white; transform: rotate(90deg); }
+.close-admin-btn svg { width: 20px; height: 20px; stroke: currentColor; }
+
+.test-progress-container { width: 100%; margin-top: 15px; padding: 0 5px; }
+.test-progress-bar { width: 100%; height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden; position: relative; }
+.test-progress-fill { height: 100%; background: linear-gradient(90deg, #8800ff 0%, #00ff88 100%); width: 0%; transition: width 0.3s ease; border-radius: 4px; }
+.test-progress-text { text-align: center; margin-top: 8px; font-size: 12px; color: #00ff88; font-family: 'Black Ops One', cursive; letter-spacing: 1px; }
+
+/* ===== НАСТРОЙКИ ===== */
+.admin-settings { margin-top: 22px; display: flex; flex-direction: column; gap: 18px; }
+.settings-section { background: rgba(10, 10, 15, 0.5); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 14px; padding: 14px 16px; overflow: hidden; }
+.settings-title { font-size: 12px; letter-spacing: 2px; color: #00ff88; margin-bottom: 12px; text-shadow: 0 0 8px rgba(0,255,136,0.4); }
+
+.strategy-row { display: flex; gap: 8px; }
+.strategy-select { flex: 1; min-width: 0; padding: 10px 12px; background: rgba(10, 10, 15, 0.9); color: #ddd; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; font-family: 'Black Ops One', cursive; font-size: 13px; letter-spacing: 1px; outline: none; cursor: pointer; }
+.strategy-select:focus { border-color: #00ff88; }
+.strategy-select option { background: #0f0f1a; color: #ddd; }
+.current-strategy { margin-top: 8px; font-size: 11px; color: #888; letter-spacing: 1px; }
+
+.seg { display: flex; gap: 6px; }
+.seg-btn { flex: 1; padding: 9px 4px; background: rgba(10, 10, 15, 0.9); color: #888; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 9px; font-family: 'Black Ops One', cursive; font-size: 11px; letter-spacing: 1px; cursor: pointer; transition: all 0.25s ease; }
+.seg-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+.seg-btn.active { background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%); color: #0f0f1a; border-color: #00ff88; box-shadow: 0 0 14px rgba(0,255,136,0.4); }
+
+.mini-btn { padding: 10px 14px; margin-top: 10px; background: rgba(0, 136, 255, 0.15); color: #66bbff; border: 1px solid rgba(0, 136, 255, 0.4); border-radius: 10px; font-family: 'Black Ops One', cursive; font-size: 11px; letter-spacing: 1px; cursor: pointer; transition: all 0.25s ease; white-space: nowrap; }
+.mini-btn:hover { background: rgba(0, 136, 255, 0.3); color: #fff; box-shadow: 0 0 14px rgba(0,136,255,0.4); }
+.mini-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mini-btn.wide { width: 100%; }
+.strategy-row .mini-btn { margin-top: 0; flex-shrink: 0; }
+
+.diag-trigger { margin-bottom: 4px; }
+.diag-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.diag-item { font-family: 'Black Ops One', cursive; font-size: 11px; letter-spacing: 0.5px; line-height: 1.5; padding: 7px 10px; border-radius: 8px; border-left: 3px solid; }
+.diag-ok { color: #8affc0; background: rgba(0,255,136,0.07); border-color: #00ff88; }
+.diag-warn { color: #ffe08a; background: rgba(255,200,0,0.07); border-color: #ffcc00; }
+.diag-err { color: #ff9a9a; background: rgba(255,68,68,0.08); border-color: #ff4444; }
+
+.scan-btn { background: rgba(136,0,255,0.15); color: #c79bff; border-color: rgba(136,0,255,0.4); }
+.scan-btn:hover { background: rgba(136,0,255,0.3); color: #fff; box-shadow: 0 0 14px rgba(136,0,255,0.4); }
+.danger-btn { background: rgba(255,68,68,0.15); color: #ff9a9a; border-color: rgba(255,68,68,0.4); }
+.danger-btn:hover { background: rgba(255,68,68,0.3); color: #fff; box-shadow: 0 0 14px rgba(255,68,68,0.4); }
+.service-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+
+.app-btn { border-color: rgba(255,170,0,0.35); }
+.app-btn .btn-icon { color: #ffaa00; }
+.app-btn .btn-glow { background: radial-gradient(circle, rgba(255,170,0,0.6) 0%, transparent 70%); }
+.app-btn:hover { border-color: #ffaa00; box-shadow: 0 0 30px rgba(255,170,0,0.4); transform: translateX(5px); }
+.app-btn:hover .btn-glow { width: 300px; height: 300px; opacity: 0.3; }
+.app-btn:hover .btn-icon svg { animation: bounce 1s ease infinite; stroke: #ffcc33; }/* Energy core: fixed glow layers, orbiting sparks and click shockwave. */
+.power-btn { border: 1px solid rgba(115, 178, 255, .18); transition: transform .25s ease, border-color .4s ease; }
+.power-btn:hover { transform: scale(1.035); border-color: rgba(0,229,255,.65); }
+.power-btn:active { transform: scale(.94); }
+.power-btn:focus-visible { outline: 2px solid #00e5ff; outline-offset: 8px; }
+.power-btn::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: radial-gradient(ellipse at 30% 15%, rgba(255,255,255,.12), transparent 65%); pointer-events: none; }
+.button-container::after { content: ''; position: absolute; inset: 42px; border: 2px solid #00e5ff; border-radius: 50%; opacity: 0; pointer-events: none; z-index: 12; }
+.button-container.ignition::after { animation: ignitionWave .85s ease-out; }
+.glow-ring { width: 238px; height: 238px; -webkit-mask: radial-gradient(circle closest-side, transparent 91%, #000 93%, #000 97%, transparent 99%); }
+.glow-ring::before { display: none; }
+.glow-ring::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,.5); }
+.glow-outer { filter: blur(18px); }
+.button-container.active .glow-ring { animation: rotateRing 6s linear infinite; }
+.button-container.active .glow-outer { animation: rotateRingSlow 14s linear infinite, energyBreathe 3.6s ease-in-out infinite; }
+.button-container.active .particles { animation: rotateRingSlow 28s linear infinite; }
+.button-container.active .particle { animation: sparkBreathe 3.8s ease-in-out infinite; width: 3px; height: 3px; }
+.button-container.active .power-btn { border-color: rgba(0,229,255,.45); }
+.button-container.active .logo-text { color: #ecffff; text-shadow: 0 0 16px #00e5ff, 0 0 32px rgba(122,0,255,.6); }
+@keyframes energyBreathe { 0%,100% { opacity: .4; } 50% { opacity: .75; } }
+@keyframes sparkBreathe { 0%,100% { opacity: .15; transform: translate(0,0) scale(.6); } 50% { opacity: .95; transform: translate(var(--tx),var(--ty)) scale(1.3); } }
+@keyframes ignitionWave { 0% { opacity: .9; transform: scale(.8); } 100% { opacity: 0; transform: scale(1.65); } }
+.animations-paused *, .animations-paused *::after { animation-play-state: paused !important; }
+body.admin-open .button-container * { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) { .button-container *, .button-container::after { animation: none !important; transition: none !important; } }
+.telegram-summary { position: absolute; bottom: -82px; color: #8991ab; font: 11px Arial, sans-serif; letter-spacing: 1.4px; white-space: nowrap; }
+.telegram-summary.ready { color: #49d9ff; }
+.telegram-state { font: 12px Arial, sans-serif; color: #8ee8ff; line-height: 1.6; overflow-wrap: anywhere; margin-bottom: 12px; }
+.telegram-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.telegram-controls .mini-btn { font-size: 10px; padding: 11px 6px; }
+.telegram-hint { font: 12px/1.6 Arial, sans-serif; color: #919bb6; margin: 12px 0 0; }
+.power-btn:disabled { cursor: wait; }
+.admin-title { font-size: 23px; }

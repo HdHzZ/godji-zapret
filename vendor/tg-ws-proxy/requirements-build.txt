@@ -1,0 +1,4 @@
+certifi
+httpx[http2]==0.28.1
+cryptography==46.0.5
+pyinstaller==6.21.0
