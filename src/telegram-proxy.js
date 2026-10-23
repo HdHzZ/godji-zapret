@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const net = require('net');
 const crypto = require('crypto');
-const { spawn, execFile } = require('child_process');
+const { spawn } = require('child_process');
+const {createOwnedProcesses} = require('./owned-processes');
 
 function createTelegramProxy({ executable, dataDir, shell }) {
   executable = path.resolve(executable);
@@ -12,20 +13,13 @@ function createTelegramProxy({ executable, dataDir, shell }) {
   let pending = Promise.resolve();
   let child = null;
   let lastError = '';
-  const exec = (file, args) => new Promise((resolve, reject) => {
-    execFile(file, args, { windowsHide: true, timeout: 8000 }, (error, stdout) => error ? reject(error) : resolve(stdout));
-  });
+  const owned = createOwnedProcesses({executables:[executable]});
   function config() {
     fs.mkdirSync(configDir, { recursive: true });
-    if (!fs.existsSync(configFile)) fs.writeFileSync(configFile, JSON.stringify({host:'127.0.0.1', port:1444, secret:crypto.randomBytes(16).toString('hex'), autostart:false, check_updates:false}, null, 2));
+    if (!fs.existsSync(configFile)) fs.writeFileSync(configFile, JSON.stringify({host:'127.0.0.1', port:1444, secret:crypto.randomBytes(16).toString('hex'), autostart:false, check_updates:false, pool_size:1, buf_kb:64}, null, 2));
     const cfg = JSON.parse(fs.readFileSync(configFile, 'utf8'));
     if (!['127.0.0.1','localhost','::1'].includes(cfg.host) || !Number.isInteger(cfg.port) || cfg.port < 1 || cfg.port > 65535 || !/^[a-f0-9]{32}$/i.test(cfg.secret)) throw Error('В настройках нужны локальный адрес, порт 1–65535 и secret из 32 hex-символов.');
     return cfg;
-  }
-  async function processes() {
-    const literal = executable.replace(/'/g, "''");
-    const output = await exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `$p = Get-CimInstance Win32_Process -Filter "Name='GodjiTelegramProxy.exe'" | Where-Object { $_.ExecutablePath -eq '${literal}' }; $p | ForEach-Object { $_.ProcessId }`]);
-    return output.trim().split(/\s+/).map(Number).filter(n => Number.isInteger(n) && n > 0);
   }
   function portReady(cfg) {
     return new Promise(resolve => {
@@ -38,14 +32,14 @@ function createTelegramProxy({ executable, dataDir, shell }) {
   async function status() {
     const installed = fs.existsSync(executable);
     if (!installed) return {installed:false,running:false,ready:false,error:'TG WS Proxy не найден в сборке'};
-    const ids = child && child.exitCode === null && child.pid ? [child.pid] : await processes();
+    const ids = child && child.exitCode === null && child.pid ? [child.pid] : await owned.list();
     const ready = ids.length > 0 && await portReady(config());
     return {installed, running:ids.length > 0, ready, error:lastError};
   }
   async function start() {
     if (!fs.existsSync(executable)) throw Error('TG WS Proxy не найден. Используйте полную сборку Godji.');
     const cfg = config();
-    const ids = await processes();
+    const ids = await owned.list({fresh:true});
     if (!ids.length) {
       if (await portReady(cfg)) throw Error('Порт Telegram-прокси уже занят другим приложением.');
       lastError = '';
@@ -53,6 +47,7 @@ function createTelegramProxy({ executable, dataDir, shell }) {
       try { child = spawn(executable, [configFile], {cwd:path.dirname(executable), windowsHide:true, detached:true, stdio:['ignore','ignore',errorLog]}); }
       finally { fs.closeSync(errorLog); }
       child.on('error', error => { lastError = error.message; });
+      child.on('exit', () => owned.invalidate());
       child.unref();
     }
     const deadline = Date.now() + 20000;
@@ -65,11 +60,7 @@ function createTelegramProxy({ executable, dataDir, shell }) {
     throw Error('TG WS Proxy не открыл порт за 20 секунд. Проверьте журнал.');
   }
   async function stop() {
-    const ids = await processes();
-    for (const id of ids) {
-      try { await exec('taskkill.exe', ['/PID',String(id),'/T','/F']); }
-      catch (error) { if ((await processes()).includes(id)) throw error; }
-    }
+    await owned.stop();
     child = null; lastError = '';
     return status();
   }

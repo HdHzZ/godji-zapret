@@ -1,9 +1,15 @@
 const { contextBridge, ipcRenderer } = require('electron');
+function listen(channel, callback) {
+  const handler = (event, value) => callback(value);
+  ipcRenderer.on(channel, handler);
+  return () => ipcRenderer.removeListener(channel, handler);
+}
 
 contextBridge.exposeInMainWorld('electronAPI', {
   telegramStatus: () => ipcRenderer.invoke('telegram-status'),
   telegramAction: (action) => ipcRenderer.invoke('telegram-action', action),
   closeApp: () => ipcRenderer.send('close-app'),
+  minimizeApp: () => ipcRenderer.send('minimize-app'),
   toggleZapret: (status) => ipcRenderer.invoke('toggle-zapret', status),
   openAdminPanel: () => ipcRenderer.send('open-admin-panel'),
   downloadZapret: () => ipcRenderer.invoke('download-zapret'),
@@ -24,7 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeServices: (names) => ipcRenderer.invoke('remove-services', names),
   checkAppUpdate: () => ipcRenderer.invoke('check-app-update'),
   applyAppUpdate: () => ipcRenderer.invoke('apply-app-update'),
-  onTestProgress: (callback) => ipcRenderer.on('test-progress', (event, progress) => callback(progress)),
-  onTestComplete: (callback) => ipcRenderer.on('test-complete', (event, result) => callback(result)),
-  onAppUpdateProgress: (callback) => ipcRenderer.on('app-update-progress', (event, pct) => callback(pct))
+  onTestProgress: (callback) => listen('test-progress', callback),
+  onTestComplete: (callback) => listen('test-complete', callback),
+  onAppUpdateProgress: (callback) => listen('app-update-progress', callback)
 });

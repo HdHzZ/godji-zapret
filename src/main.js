@@ -4,18 +4,11 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const os = require('os');
-const { spawn, execSync, execFile } = require('child_process');
+const { spawn, exec, execFile } = require('child_process');
 const extractZip = require('extract-zip');
 
-// === FIX: Windows 11 + прозрачное окно => интерфейс "исчезает" (баг GPU-композитинга) ===
-// На Win11 отключаем аппаратное ускорение, чтобы градиенты/эффекты рисовались
-// программным растеризатором. На Win10 ускорение оставляем (там всё работало).
-if (process.platform === 'win32') {
-  const build = parseInt((os.release().split('.')[2] || '0'), 10);
-  if (build >= 22000) { // 22000+ = Windows 11
-    app.disableHardwareAcceleration();
-  }
-}
+// Opaque windows use the compositor. Opt in only for a broken GPU driver.
+if (process.env.GODJI_SOFTWARE_RENDERING === '1') app.disableHardwareAcceleration();
 
 // ==========================================
 // ФИКС ПРОЗРАЧНОСТИ: кэш Electron — вне OneDrive/Dropbox
@@ -47,7 +40,7 @@ const VERSION_FILE = path.join(zapretCoreDir, '_godji_version.txt');
 const runDir = path.join(userDataPath, 'run');
 if (!fs.existsSync(runDir)) { try { fs.mkdirSync(runDir, { recursive: true }); } catch (e) {} }
 
-// ===== Яндекс Диск (публичная папка GodjiUpdates, без OAuth) =====
+
 
 // ==========================================
 // ДИАГНОСТИЧЕСКИЙ ЛОГ СТАРТА (пишется до любых проверок)
@@ -64,31 +57,16 @@ function logStartup(msg) {
 // ==========================================
 // АДМИН + АВТО-РЕСТАРТ + ЛОГ
 // ==========================================
-function isAdmin() { try { execSync('net session', { stdio: 'ignore' }); return true; } catch (e) { return false; } }
-
-logStartup('==================== START ====================');
-logStartup('app version : ' + app.getVersion());
-logStartup('argv        : ' + process.argv.join(' | '));
-logStartup('execPath    : ' + process.execPath);
-logStartup('isPackaged  : ' + app.isPackaged);
-logStartup('cwd         : ' + process.cwd());
-logStartup('LOCALAPPDATA: ' + (process.env.LOCALAPPDATA || 'N/A'));
-const _admin = isAdmin();
-logStartup('isAdmin     : ' + _admin);
-
-if (!_admin) {
-  logStartup('NOT admin -> attempting elevation via powershell RunAs');
-  const cwd = isDev ? path.join(__dirname, '..') : appDir;
-  const argList = process.argv.slice(1).map(a => a.replace(/'/g, "''")).join("' '");
-  try {
-    spawn('powershell.exe', ['-NoProfile', '-Command', `Start-Process -FilePath '${process.execPath}' -ArgumentList '${argList}' -WorkingDirectory '${cwd}' -Verb RunAs`], { detached: true, stdio: 'ignore' }).unref();
-    logStartup('powershell restart spawned -> quitting non-admin instance');
-  } catch (e) {
-    logStartup('ERROR spawning powershell restart: ' + e.message);
-  }
-  app.quit();
-} else {
-  logStartup('Running as ADMIN -> continuing normal startup');
+async function isAdmin() {try {await execute('net.exe',['session']);return true;}catch{return false;}}
+async function ensureAdmin() {
+  if (await isAdmin()) return true;
+  const quote = value => "'" + value.replace(/'/g,"''") + "'";
+  const args = process.argv.slice(1);
+  const argumentList = args.length ? ' -ArgumentList @(' + args.map(quote).join(',') + ')' : '';
+  const command = 'Start-Process -FilePath ' + quote(process.execPath) + argumentList + ' -WorkingDirectory ' + quote(appDir) + ' -Verb RunAs -WindowStyle Hidden';
+  const helper = spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command',command],{detached:true,windowsHide:true,stdio:'ignore'});
+  helper.on('error',error => logStartup(error.message));helper.unref();
+  app.quit();return false;
 }
 
 // ==========================================
@@ -114,11 +92,9 @@ function patchForClub() {
 // ==========================================
 // СОСТОЯНИЕ ЗАЩИТЫ
 // ==========================================
-function isProcessRunning(name) {
-  try { return execSync(`tasklist /FI "IMAGENAME eq ${name}.exe" /FO CSV /NH`, { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).toString().toLowerCase().includes(`${name}.exe`); }
-  catch (e) { return false; }
-}
-function checkZapretRunning() { return isProcessRunning('winws1') || isProcessRunning('winws'); }
+const {createOwnedProcesses,execute} = require('./owned-processes');
+const zapretProcesses = createOwnedProcesses({executables:['winws.exe','winws1.exe'].map(name => path.join(zapretCoreDir,'bin',name))});
+async function checkZapretRunning() {return (await zapretProcesses.list()).length > 0;}
 
 // ==========================================
 // СКАЧИВАНИЕ
@@ -184,7 +160,7 @@ const appUpdater = createAppUpdater({
   localVersion:app.getVersion(),
   directory:path.join(userDataPath,'updates'),
   openInstaller:async installer => {
-    runZapretService(false);
+    await runZapretService(false);
     const telegram = await telegramProxy.action('stop');
     if (!telegram.success) return 'Не удалось остановить Telegram-прокси: ' + telegram.message;
     return shell.openPath(installer);
@@ -224,7 +200,7 @@ function moveFilesFromSubfolder() {
 let coreUpdatePending = false;
 async function downloadAndExtractZapret() {
   if (coreUpdatePending) return {success:false,message:'Обновление ядра уже выполняется.'};
-  if (checkZapretRunning()) return {success:false,message:'Сначала выключите защиту, затем обновите ядро.'};
+  if ((await zapretProcesses.list({fresh:true})).length) return {success:false,message:'Сначала выключите защиту, затем обновите ядро.'};
   coreUpdatePending = true;
   let stage, backup;
   function removeStage(directory) {
@@ -268,7 +244,7 @@ async function checkForUpdates() {
 // ==========================================
 // ТЕСТ ПРОТОКОЛОВ
 // ==========================================
-let testTotal = 0, testFinished = false, testTimer = null;
+let testTotal = 0, testFinished = false, testTimer = null, testProcess = null;
 function readBestFromResultsFile() { try { const dir = path.join(zapretCoreDir, 'utils', 'test results'); if (!fs.existsSync(dir)) return null; const f = fs.readdirSync(dir).filter(x => x.startsWith('test_results_')).sort(); if (!f.length) return null; const m = fs.readFileSync(path.join(dir, f[f.length - 1]), 'utf8').match(/Best strategy:\s*(.+)/i); return m ? m[1].trim() : null; } catch (e) { return null; } }
 function finishTest(best) {
   if (testFinished) return; testFinished = true; if (testTimer) { clearTimeout(testTimer); testTimer = null; }
@@ -277,12 +253,27 @@ function finishTest(best) {
   console.log('✅ Тесты завершены. Лучший конфиг:', best);
 }
 function runTests() {
-  const script = path.join(zapretCoreDir, 'utils', 'test zapret.ps1');
+  if(testProcess) return {success:false,message:'Тест уже выполняется.'};
+  const original = path.join(zapretCoreDir,'utils','test zapret.ps1');
+  if(!fs.existsSync(original)) return {success:false,message:'Сначала скачайте ядро Zapret.'};
+  const strategiesDir = path.join(runDir,'test-strategies'); fs.mkdirSync(strategiesDir,{recursive:true});
+  let script = path.join(runDir,'protocol-test.ps1');
+  try {
+    for(const name of listStrategies().list) buildHiddenBat(name,path.join(strategiesDir,name));
+    const source = require('./protocol-test').scopeProtocolTest(fs.readFileSync(original,'utf8'),{coreDir:zapretCoreDir,strategiesDir});
+    fs.writeFileSync(script,'\ufeff' + source);
+  } catch(error) {return {success:false,message:error.message};}
   if (!fs.existsSync(script)) return { success: false, message: 'test zapret.ps1 не найден. Сначала «СКАЧАТЬ ZAPRET».' };
   testTotal = 0; testFinished = false; if (testTimer) clearTimeout(testTimer);
   const ps = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `[Console]::Out.AutoFlush = $true; $ProgressPreference = 'SilentlyContinue'; & '${script}'`], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+  testProcess = ps;
   ps.stdin.on('error', () => {}); ps.stdin.write('1\n'); ps.stdin.write('1\n'); ps.stdin.end();
-  testTimer = setTimeout(() => { try { ps.kill(); } catch (e) {} finishTest(null); }, 12 * 60 * 1000);
+  function failTest(message) {
+    if(testFinished) return;
+    testFinished = true;clearTimeout(testTimer);testTimer = null;
+    if(mainWindow) mainWindow.webContents.send('test-complete',{success:false,message});
+  }
+  testTimer = setTimeout(() => { failTest('Время теста истекло. Попробуйте другую стратегию вручную.'); try {ps.kill();} catch {} zapretProcesses.stop().catch(error => logStartup(error.message)); }, 12 * 60 * 1000);
   ps.stdout.on('data', (data) => {
     const text = data.toString(); process.stdout.write(text);
     const tot = text.match(/Total configs:\s*(\d+)/); if (tot) testTotal = parseInt(tot[1]);
@@ -291,8 +282,8 @@ function runTests() {
     const bm = text.match(/Best config:\s*(.+)/); if (bm) { try { ps.kill(); } catch (e) {} finishTest(bm[1].trim()); }
   });
   ps.stderr.on('data', (data) => process.stderr.write(data));
-  ps.on('close', () => finishTest(null));
-  ps.on('error', (err) => { if (testFinished) return; testFinished = true; if (testTimer) clearTimeout(testTimer); if (mainWindow) mainWindow.webContents.send('test-complete', { success: false, message: 'Ошибка запуска: ' + err.message }); });
+  ps.on('close', code => {testProcess = null;zapretProcesses.invalidate();if(code === 0) finishTest(null);else failTest('Тест завершился с ошибкой. Проверьте журнал запуска.');});
+  ps.on('error', error => {testProcess = null;failTest('Ошибка запуска: ' + error.message);});
   return { success: true, message: 'Тесты запущены' };
 }
 function saveBestConfig(name) { fs.writeFileSync(path.join(zapretCoreDir, 'best-config.txt'), name); }
@@ -300,7 +291,7 @@ function saveBestConfig(name) { fs.writeFileSync(path.join(zapretCoreDir, 'best-
 // ==========================================
 // СКРЫТЫЙ ЗАПУСК (winws1) — read-only friendly
 // ==========================================
-function buildHiddenBat(configName) {
+function buildHiddenBat(configName,destination = path.join(runDir,'_godji_copy.bat')) {
   const orig = path.join(zapretCoreDir, configName);             // читаем с сервера (read-only ок)
   let text = fs.readFileSync(orig, 'utf8').replace(/\r\n/g, '\n');
 
@@ -313,59 +304,75 @@ function buildHiddenBat(configName) {
     let line = raw.replace(/[ \t]+$/, '');
     const low = line.trim().toLowerCase();
     if (low === '@echo off') continue;
+    if (/^call\s+(?:"[^"]*service\.bat"|service\.bat)\s+(?:status_zapret|check_updates|tcp_enable)\b/i.test(line.trim())) continue;
     if (low.startsWith('cd /d')) continue;
-    if (/winws\d*\.exe/i.test(line) && /\bstart\b/i.test(line) && !/(^|\s)\/b(\s|$)/i.test(line)) line = line.replace(/\bstart\b/i, 'start /b');
+    if (/winws\d*\.exe/i.test(line) && /\bstart\b/i.test(line)) { line = line.replace(/\bstart\b/i, 'start /b /wait'); }
     patched.push(line);
   }
-  const copyPath = path.join(runDir, '_godji_copy.bat');
+  const copyPath = destination;
   fs.writeFileSync(copyPath, patched.join('\r\n'));
 
-  const logPath = path.join(runDir, '_godji_run.log');
-  const wrapper = path.join(runDir, '_godji_run.bat');
-  fs.writeFileSync(wrapper, ['@echo off', `call "${copyPath}" > "${logPath}" 2>&1`, ':godjiwait', 'timeout /t 2 /nobreak >nul', 'tasklist /FI "IMAGENAME eq winws1.exe" /NH 2>nul | find /I "winws1.exe" >nul', 'if not errorlevel 1 goto godjiwait', 'tasklist /FI "IMAGENAME eq winws.exe" /NH 2>nul | find /I "winws.exe" >nul', 'if not errorlevel 1 goto godjiwait', 'exit /b'].join('\r\n'));
-  return wrapper;
+  return copyPath;
 }
-function runHiddenBat(wrapperBat) {
-  const vbs = path.join(path.dirname(wrapperBat), '_godji_run.vbs');
-  fs.writeFileSync(vbs, `CreateObject("WScript.Shell").Run "cmd /c ""${wrapperBat.replace(/"/g, '""')}""", 0, False`);
-  spawn('wscript.exe', [vbs], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+function runHiddenBat(batch) {
+  const log = fs.openSync(path.join(runDir,'_godji_run.log'),'w');
+  let child;
+  try {child = spawn('cmd.exe',['/d','/s','/c', '""' + batch + '""'],{windowsVerbatimArguments:true,windowsHide:true,detached:true,stdio:['ignore',log,log]});}
+  finally {fs.closeSync(log);}
+  child.on('error',error => logStartup('Core launch: ' + error.message));child.unref();
+  return new Promise((resolve,reject) => {child.once('spawn',resolve);child.once('error',reject);});
 }
-function runZapretService(status) {
-  if (!status) {
-    console.log('🛑 Остановка winws1 / winws...');
-    try { execSync('taskkill /F /IM winws1.exe /T', { windowsHide: true, stdio: 'ignore' }); } catch (e) {}
-    try { execSync('taskkill /F /IM winws.exe /T', { windowsHide: true, stdio: 'ignore' }); } catch (e) {}
-    return true;
+async function runZapretService(enabled) {
+  if (!enabled) {await zapretProcesses.stop();return true;}
+  if ((await zapretProcesses.list({fresh:true})).length) return true;
+  if ((await zapretProcesses.foreign()).length) throw Error('Запущен другой экземпляр Zapret. Godji не будет останавливать его или запускать второй фильтр. Сначала выключите другой экземпляр.');
+  const cfg = path.join(zapretCoreDir,'best-config.txt');
+  const name = fs.existsSync(cfg) ? fs.readFileSync(cfg,'utf8').trim() || 'general.bat' : 'general.bat';
+  if (path.basename(name) !== name || !name.toLowerCase().endsWith('.bat') || !fs.existsSync(path.join(zapretCoreDir,name))) return false;
+  await runHiddenBat(buildHiddenBat(name));
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await new Promise(resolve => setTimeout(resolve,350));
+    if ((await zapretProcesses.list({fresh:true})).length) return true;
   }
-  patchForClub();
-  let configName = 'general.bat'; const cfgPath = path.join(zapretCoreDir, 'best-config.txt');
-  if (fs.existsSync(cfgPath)) configName = fs.readFileSync(cfgPath, 'utf8').trim() || 'general.bat';
-  if (!fs.existsSync(path.join(zapretCoreDir, configName))) { console.error('❌ Конфиг не найден:', configName); return false; }
-  try { runHiddenBat(buildHiddenBat(configName)); console.log('🚀 Скрытый запуск:', configName); return true; } catch (e) { console.error('❌', e.message); return false; }
+  return false;
 }
 
 // ==========================================
 // СЛУЖБЫ: статус / удаление сервиса / скан конфликтов
 // ==========================================
-function runHide(cmd) { try { return execSync(cmd, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).toString(); } catch (e) { return (e.stdout ? e.stdout.toString() : '') + (e.stderr ? e.stderr.toString() : ''); } }
-function svcExists(name) { return /(RUNNING|STOPPED|STOP_PENDING|START_PENDING)\b/i.test(runHide(`sc query "${name}"`)); }
-function svcRunning(name) { return /RUNNING/i.test(runHide(`sc query "${name}"`)); }
 const CONFLICT_SERVICES = ['zapret', 'WinDivert', 'WinDivert14', 'GoodbyeDPI', 'discordfix_zapret', 'winws1', 'winws2'];
-function removeZapretService() {
-  if (svcExists('zapret')) { runHide('net stop zapret'); runHide('sc delete zapret'); }
-  runHide('taskkill /F /IM winws.exe /T');
-  if (svcExists('WinDivert')) { runHide('net stop WinDivert'); runHide('sc delete WinDivert'); }
-  runHide('net stop WinDivert14'); runHide('sc delete WinDivert14');
-  const still = svcExists('zapret');
-  return { success: !still, message: still ? 'Службу zapret не удалось удалить (возможно, нужен перезапуск ПК).' : 'Служба zapret успешно удалена.' };
+async function scanServices() {
+  const found = [];
+  for (const name of CONFLICT_SERVICES) {
+    const result = await runCmd('sc query "' + name + '"');
+    if (result.code === 0) found.push({name,running:/RUNNING/i.test(result.out)});
+  }
+  return found;
 }
-function scanServices() { const found = []; for (const name of CONFLICT_SERVICES) if (svcExists(name)) found.push({ name, running: svcRunning(name) }); return found; }
-function removeServices(names) { const results = []; for (const n of names) { if (svcExists(n)) { runHide(`net stop "${n}"`); runHide(`sc delete "${n}"`); } results.push({ name: n, removed: !svcExists(n) }); } runHide('taskkill /F /IM winws.exe /T'); return results; }
+async function removeServices(names) {
+  const results = [];
+  for (const name of Array.isArray(names) ? names : []) {
+    if (!CONFLICT_SERVICES.includes(name)) {results.push({name,removed:false});continue;}
+    const config = await runCmd('sc qc "' + name + '"');
+    if (!config.out.toLowerCase().includes((zapretCoreDir + path.sep).toLowerCase())) {results.push({name,removed:false});continue;}
+    await runCmd('sc stop "' + name + '"');
+    const deletion = await runCmd('sc delete "' + name + '"');
+    results.push({name,removed:deletion.code === 0});
+  }
+  return results;
+}
+async function removeZapretService() {
+  await zapretProcesses.stop();
+  const [result] = await removeServices(['zapret']);
+  return {success:true,message:result.removed ? 'Собственное ядро и служба Godji остановлены.' : 'Собственное ядро остановлено. Сторонние службы и общий драйвер WinDivert не изменялись.'};
+}
 
 // ==========================================
 // НАСТРОЙКИ
 // ==========================================
-function runCmd(cmd) { try { return { out: execSync(cmd, { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).toString(), code: 0 }; } catch (e) { return { out: (e.stdout ? e.stdout.toString() : '') + (e.stderr ? e.stderr.toString() : ''), code: e.status || 1 }; } }
+function runCmd(command) {
+  return new Promise(resolve => exec(command,{windowsHide:true,timeout:10000,maxBuffer:2*1024*1024},(error,stdout,stderr) => resolve({out:stdout || stderr || '',code:error ? error.code || 1 : 0})));
+}
 function countLines(file) { try { return fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(l => l.length > 0).length; } catch (e) { return 0; } }
 function getGameFilter() { if (!fs.existsSync(GAME_FLAG)) return 'disabled'; try { const m = fs.readFileSync(GAME_FLAG, 'utf8').trim().toLowerCase(); return ['all', 'tcp', 'udp'].includes(m) ? m : 'disabled'; } catch (e) { return 'disabled'; } }
 function setGameFilter(mode) { if (mode === 'disabled' || !mode) { try { fs.unlinkSync(GAME_FLAG); } catch (e) {} return getGameFilter(); } if (!fs.existsSync(UTILS_DIR)) fs.mkdirSync(UTILS_DIR, { recursive: true }); fs.writeFileSync(GAME_FLAG, mode.toLowerCase()); return getGameFilter(); }
@@ -391,21 +398,17 @@ function listStrategies() {
   return { list: files, current };
 }
 function setStrategy(name) { fs.writeFileSync(path.join(zapretCoreDir, 'best-config.txt'), name); return name; }
-function runDiagnostics() {
-  const res = []; const add = (s, t) => res.push({ status: s, text: t });
-  { const r = runCmd('sc query BFE'); if (/RUNNING/i.test(r.out)) add('ok', 'Base Filtering Engine работает'); else add('err', 'Base Filtering Engine НЕ запущена — нужна для zapret'); }
-  { const r = runCmd('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings" /v ProxyEnable'); if (/0x1/i.test(r.out)) { const s = runCmd('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings" /v ProxyServer'); const m = s.out.match(/ProxyServer\s+REG_\w+\s+(.+)/i); add('warn', 'Включён системный прокси' + (m ? ': ' + m[1].trim() : '') + '. Проверьте его корректность'); } else add('ok', 'Системный прокси не мешает'); }
-  { const r = runCmd('netsh interface tcp show global'); if (/timestamps[^\n]*enabled/i.test(r.out)) add('ok', 'TCP timestamps включены'); else { runCmd('netsh interface tcp set global timestamps=enabled'); const r2 = runCmd('netsh interface tcp show global'); if (/timestamps[^\n]*enabled/i.test(r2.out)) add('ok', 'TCP timestamps включены автоматически'); else add('err', 'Не удалось включить TCP timestamps'); } }
-  { const r = runCmd('tasklist /FI "IMAGENAME eq AdguardSvc.exe" /FO CSV /NH'); if (/adguardsvc\.exe/i.test(r.out)) add('err', 'Найден AdGuard — может ломать Discord'); else add('ok', 'AdGuard не найден'); }
-  const svc = runCmd('sc query type= service state= all').out.toLowerCase();
-  if (svc.includes('killer')) add('err', 'Найдены службы Killer — конфликтуют с zapret'); else add('ok', 'Killer не найден');
-  if (/intel[^\n]*connectivity[^\n]*network/.test(svc)) add('err', 'Intel Connectivity Network Service конфликтует с zapret'); else add('ok', 'Intel Connectivity не мешает');
-  if (svc.includes('tracsrvwrapper') || svc.includes('epwd')) add('err', 'Найден Check Point — конфликтует'); else add('ok', 'Check Point не найден');
-  if (svc.includes('smartbyte')) add('err', 'Найден SmartByte — конфликтует'); else add('ok', 'SmartByte не найден');
-  { let has = false; try { has = fs.readdirSync(path.join(zapretCoreDir, 'bin')).some(f => f.endsWith('.sys')); } catch (e) {} if (has) add('ok', 'WinDivert64.sys на месте'); else add('err', 'WinDivert64.sys НЕ найден в bin\\'); }
-  { const vpn = svc.split('\n').filter(l => l.includes('vpn')); if (vpn.length) add('warn', 'Найдены VPN-службы — отключите VPN'); else add('ok', 'VPN не обнаружен'); }
-  { const hf = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'drivers', 'etc', 'hosts'); try { const t = fs.readFileSync(hf, 'utf8').toLowerCase(); if (t.includes('youtube.com') || t.includes('youtu.be')) add('warn', 'В hosts есть записи youtube — возможны проблемы'); else add('ok', 'hosts чист от youtube'); } catch (e) { add('ok', 'hosts не прочитан'); } }
-  return res;
+async function runDiagnostics() {
+  const results = [], add = (status,text) => results.push({status,text});
+  const [bfe,proxy,tcp,adguard,services] = await Promise.all(['sc query BFE','reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings" /v ProxyEnable','netsh interface tcp show global','tasklist /FI "IMAGENAME eq AdguardSvc.exe" /FO CSV /NH','sc query type= service state= all'].map(runCmd));
+  add(/RUNNING/i.test(bfe.out)?'ok':'warn','Base Filtering Engine: ' + (/RUNNING/i.test(bfe.out)?'работает':'проверьте состояние службы'));
+  add(/0x1/i.test(proxy.out)?'warn':'ok',/0x1/i.test(proxy.out)?'Включён системный прокси. Godji не изменяет его настройки.':'Системный прокси отключён');
+  add('ok','Состояние TCP прочитано. Системные параметры не изменялись.');
+  if (tcp.code !== 0) add('warn','Не удалось прочитать параметры TCP');
+  add(/adguardsvc\.exe/i.test(adguard.out)?'warn':'ok',/adguardsvc\.exe/i.test(adguard.out)?'Обнаружен AdGuard: проверьте совместимость выбранной стратегии':'AdGuard не обнаружен');
+  for (const name of ['killer','smartbyte','tracsrvwrapper','epwd','vpn']) if(services.out.toLowerCase().includes(name)) add('warn','Обнаружена возможная несовместимость: ' + name + '. Служба не изменялась.');
+  add(fs.existsSync(path.join(zapretCoreDir,'bin','WinDivert64.sys'))?'ok':'err','Проверка драйвера WinDivert64.sys');
+  return results;
 }
 
 // ==========================================
@@ -418,17 +421,22 @@ const telegramProxy = createTelegramProxy({
 });
 let mainWindow;
 function createWindow() {
-  mainWindow = new BrowserWindow({ width: 456, height: 576, frame: false, transparent: true, resizable: false, hasShadow: false, webPreferences: { preload: path.join(__dirname, 'preload.js'), nodeIntegration: false, contextIsolation: true } });
+  mainWindow = new BrowserWindow({ width: 456, height: 576, frame: false, transparent: false, backgroundColor: '#0b0f1b', maximizable: false, resizable: false, hasShadow: false, webPreferences: { preload: path.join(__dirname, 'preload.js'), nodeIntegration: false, contextIsolation: true, backgroundThrottling: true } });
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html')); mainWindow.setMenuBarVisibility(false);
+  mainWindow.webContents.once('did-finish-load',() => {try {os.setPriority(mainWindow.webContents.getOSProcessId(),os.constants.priority.PRIORITY_BELOW_NORMAL);} catch {}});
 }
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (!await ensureAdmin()) return;
+  if (!app.requestSingleInstanceLock()) {app.quit();return;}
+  app.on('second-instance',() => {if(mainWindow){if(mainWindow.isMinimized())mainWindow.restore();mainWindow.focus();}});
+  try {os.setPriority(process.pid,os.constants.priority.PRIORITY_BELOW_NORMAL);} catch {}
   try { patchForClub(); } catch (e) {}
   if (app.isPackaged) {
     try { app.setLoginItemSettings({ openAtLogin: false, name: 'GodjiZapret' }); } catch (e) {}
   }
   logStartup('app ready -> creating window');
   createWindow();
-});
+}).catch(error => {logStartup(error.stack || error.message);app.quit();});
 
 // ==========================================
 // IPC
@@ -436,19 +444,7 @@ app.whenReady().then(() => {
 ipcMain.handle('download-zapret', () => downloadAndExtractZapret());
 ipcMain.handle('check-updates', () => checkForUpdates());
 ipcMain.handle('run-tests', () => runTests());
-let statusRequest = null;
-ipcMain.handle('check-status', () => {
-  if (!statusRequest) {
-    statusRequest = new Promise((resolve, reject) => {
-      execFile('tasklist.exe', ['/FO', 'CSV', '/NH', '/FI', 'IMAGENAME eq winws*'],
-        { windowsHide: true, timeout: 5000 }, (error, stdout) => {
-          if (error) return reject(error);
-          resolve({ running: /^"winws(?:1)?\.exe"/im.test(stdout) });
-        });
-    }).finally(() => { statusRequest = null; });
-  }
-  return statusRequest;
-});
+ipcMain.handle('check-status',async () => ({running:await checkZapretRunning()}));
 ipcMain.handle('get-game-filter', () => getGameFilter());
 ipcMain.handle('set-game-filter', (e, mode) => setGameFilter(mode));
 ipcMain.handle('get-ipset-status', () => getIpsetStatus());
@@ -468,7 +464,7 @@ ipcMain.handle('toggle-zapret', (e, enabled) => {
   if (typeof enabled !== 'boolean') return {success:false,message:'Некорректная команда'};
   if (protectionOperation) return {success:false,message:'Дождитесь завершения предыдущей операции'};
   protectionOperation = (async () => {
-    const zapretOk = runZapretService(enabled);
+    const zapretOk = await runZapretService(enabled);
     const telegram = await telegramProxy.action(enabled ? 'start' : 'stop');
     return {success:zapretOk && telegram.success, message:!zapretOk ? 'Не удалось запустить Zapret: проверьте ядро и стратегию.' : (telegram.message || ''), telegram:telegram.state};
   })().finally(() => { protectionOperation = null; });
@@ -477,5 +473,6 @@ ipcMain.handle('toggle-zapret', (e, enabled) => {
 ipcMain.handle('telegram-status', () => telegramProxy.status());
 ipcMain.handle('telegram-action', (e, action) => telegramProxy.action(action));
 ipcMain.on('open-admin-panel', () => {});
+ipcMain.on('minimize-app',() => mainWindow?.minimize());
 ipcMain.on('close-app', () => app.quit());
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

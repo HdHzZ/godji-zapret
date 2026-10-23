@@ -20,32 +20,20 @@ let isActive = false;
 let statusPending = false;
 let appUpdating = false; // флаг, чтобы глобальный listener прогресса апдейта оболочки не реагировал вхолостую
 
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-function startParticles() {
-    if (particlesContainer.childElementCount || reducedMotion.matches) return;
-    const fragment = document.createDocumentFragment();
-    for (let i = 0; i < 16; i++) {
-        const p = document.createElement('div'); p.className = 'particle';
-        const angle = i * Math.PI * 2 / 16;
-        p.style.left = (150 + Math.cos(angle) * 135) + 'px';
-        p.style.top = (150 + Math.sin(angle) * 135) + 'px';
-        p.style.setProperty('--tx', (Math.cos(angle) * 12) + 'px');
-        p.style.setProperty('--ty', (Math.sin(angle) * 12) + 'px');
-        p.style.animationDelay = (-i * 0.23) + 's';
-        fragment.appendChild(p);
-    }
-    particlesContainer.appendChild(fragment);
+let noticeTimer;
+function notify(message) {
+    const notice = document.getElementById('notice'); notice.textContent = message; notice.hidden = false;
+    clearTimeout(noticeTimer); noticeTimer = setTimeout(() => {notice.hidden = true;},10000);
 }
-function stopParticles() { particlesContainer.replaceChildren(); }
-
+document.getElementById('notice').addEventListener('click',() => {document.getElementById('notice').hidden = true;clearTimeout(noticeTimer);});
 function applyVisualState(active) {
     isActive = active;
     btn.setAttribute('aria-pressed', String(active));
     btn.setAttribute('aria-label', active ? 'Выключить защиту' : 'Включить защиту');
     const was = container.classList.contains('active');
     if (active === was) return;
-    if (active) { container.classList.add('active'); statusText.textContent = 'ЗАЩИТА АКТИВНА'; statusText.style.color = '#00ff88'; startParticles(); }
-    else { container.classList.remove('active'); statusText.textContent = 'НАЖМИТЕ ДЛЯ ВКЛЮЧЕНИЯ'; statusText.style.color = '#666'; stopParticles(); }
+    if (active) { container.classList.add('active'); statusText.textContent = 'ЗАЩИТА АКТИВНА';  }
+    else { container.classList.remove('active'); statusText.textContent = 'НАЖМИТЕ ДЛЯ ВКЛЮЧЕНИЯ';  }
     isActive = active;
 }
 let togglePending = false;
@@ -79,20 +67,20 @@ async function toggleState() {
     if (togglePending || !window.electronAPI) return;
     const desired = !isActive;
     togglePending = true; btn.disabled = true;
-    container.classList.remove('ignition'); void container.offsetWidth; container.classList.add('ignition');
+    container.classList.add('ignition','busy'); btn.setAttribute('aria-busy','true');
     statusText.textContent = desired ? 'ЗАПУСК СЕРВИСОВ…' : 'ОСТАНОВКА СЕРВИСОВ…';
     try {
         const result = await window.electronAPI.toggleZapret(desired);
-        if (!result.success) alert(result.message || 'Не удалось выполнить команду');
+        if (!result.success) notify(result.message || 'Не удалось выполнить команду');
         const [zapret, telegram] = await Promise.all([window.electronAPI.checkStatus(), window.electronAPI.telegramStatus()]); showProtection(zapret, telegram);
     } catch (e) { statusText.textContent = 'ОШИБКА: ' + e.message; }
-    finally { togglePending = false; btn.disabled = false; }
+    finally { togglePending = false; btn.disabled = false; container.classList.remove('busy'); btn.setAttribute('aria-busy','false'); }
 }
 document.querySelectorAll('[data-tg]').forEach(button => button.addEventListener('click', async () => {
     const controls = document.querySelectorAll('[data-tg]'); controls.forEach(b => b.disabled = true);
     document.getElementById('telegramStatus').textContent = 'Выполнение команды…';
-    try { const result = await window.electronAPI.telegramAction(button.dataset.tg); if (!result.success) alert(result.message); await pollStatus(); }
-    catch (e) { alert('Telegram: ' + e.message); }
+    try { const result = await window.electronAPI.telegramAction(button.dataset.tg); if (!result.success) notify(result.message); await pollStatus(); }
+    catch (e) { notify('Telegram: ' + e.message); }
     finally { controls.forEach(b => b.disabled = false); }
 }));
 
@@ -111,17 +99,17 @@ async function loadSettings() {
     } catch (e) { console.warn('loadSettings', e); }
 }
 
-document.querySelectorAll('#gameSeg .seg-btn').forEach(b => b.addEventListener('click', async () => { const m = b.dataset.mode; highlightSeg('gameSeg', await window.electronAPI.setGameFilter(m)); if (m !== 'disabled') alert('Перезапустите защиту (выкл/вкл Godji), чтобы Game Filter применился.'); }));
-document.querySelectorAll('#ipsetSeg .seg-btn').forEach(b => b.addEventListener('click', async () => { const t = b.dataset.mode; const res = await window.electronAPI.setIpsetMode(t); highlightSeg('ipsetSeg', res); if (t === 'loaded' && res !== 'loaded') alert('Нет бэкапа списка. Нажмите «ОБНОВИТЬ СПИСОК IPSET».'); else alert('Перезапустите защиту для применения IPSet.'); }));
+document.querySelectorAll('#gameSeg .seg-btn').forEach(b => b.addEventListener('click', async () => { const m = b.dataset.mode; highlightSeg('gameSeg', await window.electronAPI.setGameFilter(m)); if (m !== 'disabled') notify('Перезапустите защиту (выкл/вкл Godji), чтобы Game Filter применился.'); }));
+document.querySelectorAll('#ipsetSeg .seg-btn').forEach(b => b.addEventListener('click', async () => { const t = b.dataset.mode; const res = await window.electronAPI.setIpsetMode(t); highlightSeg('ipsetSeg', res); if (t === 'loaded' && res !== 'loaded') notify('Нет бэкапа списка. Нажмите «ОБНОВИТЬ СПИСОК IPSET».'); else notify('Перезапустите защиту для применения IPSet.'); }));
 
 const updateIpsetBtn = document.getElementById('updateIpsetBtn');
-if (updateIpsetBtn) updateIpsetBtn.addEventListener('click', async () => { updateIpsetBtn.disabled = true; const o = updateIpsetBtn.textContent; updateIpsetBtn.textContent = 'ОБНОВЛЕНИЕ...'; const r = await window.electronAPI.updateIpset(); updateIpsetBtn.disabled = false; updateIpsetBtn.textContent = o; if (r.success) { highlightSeg('ipsetSeg', r.status); alert(r.message); } else alert('Ошибка: ' + r.message); });
+if (updateIpsetBtn) updateIpsetBtn.addEventListener('click', async () => { updateIpsetBtn.disabled = true; const o = updateIpsetBtn.textContent; updateIpsetBtn.textContent = 'ОБНОВЛЕНИЕ...'; const r = await window.electronAPI.updateIpset(); updateIpsetBtn.disabled = false; updateIpsetBtn.textContent = o; if (r.success) { highlightSeg('ipsetSeg', r.status); notify(r.message); } else notify('Ошибка: ' + r.message); });
 
 const updateHostsBtn = document.getElementById('updateHostsBtn');
-if (updateHostsBtn) updateHostsBtn.addEventListener('click', async () => { updateHostsBtn.disabled = true; const o = updateHostsBtn.textContent; updateHostsBtn.textContent = 'ПРОВЕРКА...'; const r = await window.electronAPI.updateHosts(); updateHostsBtn.disabled = false; updateHostsBtn.textContent = o; alert(r.message); });
+if (updateHostsBtn) updateHostsBtn.addEventListener('click', async () => { updateHostsBtn.disabled = true; const o = updateHostsBtn.textContent; updateHostsBtn.textContent = 'ПРОВЕРКА...'; const r = await window.electronAPI.updateHosts(); updateHostsBtn.disabled = false; updateHostsBtn.textContent = o; notify(r.message); });
 
 const applyStrategy = document.getElementById('applyStrategy');
-if (applyStrategy) applyStrategy.addEventListener('click', async () => { const sel = document.getElementById('strategySelect'); if (!sel || !sel.value) return; await window.electronAPI.setStrategy(sel.value); const cur = document.getElementById('currentStrategy'); if (cur) cur.textContent = 'Текущая: ' + sel.value; alert('Стратегия сохранена. Перезапустите защиту для применения.'); });
+if (applyStrategy) applyStrategy.addEventListener('click', async () => { const sel = document.getElementById('strategySelect'); if (!sel || !sel.value) return; await window.electronAPI.setStrategy(sel.value); const cur = document.getElementById('currentStrategy'); if (cur) cur.textContent = 'Текущая: ' + sel.value; notify('Стратегия сохранена. Перезапустите защиту для применения.'); });
 
 const diagBtn = document.getElementById('diagBtn');
 if (diagBtn) diagBtn.addEventListener('click', async () => {
@@ -138,7 +126,7 @@ if (removeServiceBtn) removeServiceBtn.addEventListener('click', async () => {
     removeServiceBtn.disabled = true; const o = removeServiceBtn.textContent; removeServiceBtn.textContent = 'УДАЛЕНИЕ...';
     const r = await window.electronAPI.removeZapretService();
     removeServiceBtn.disabled = false; removeServiceBtn.textContent = o;
-    alert(r.message);
+    notify(r.message);
 });
 let scannedNames = [];
 const scanServicesBtn = document.getElementById('scanServicesBtn');
@@ -162,27 +150,28 @@ if (removeFoundBtn) removeFoundBtn.addEventListener('click', async () => {
     const res = await window.electronAPI.removeServices(scannedNames);
     removeFoundBtn.disabled = false; removeFoundBtn.textContent = o;
     const failed = res.filter(r => !r.removed).map(r => r.name);
-    if (failed.length) alert('Не удалось удалить: ' + failed.join(', '));
-    else { alert('Все найденные службы удалены.'); if (serviceList) serviceList.innerHTML = '<div class="diag-item diag-ok">✓  Службы удалены</div>'; removeFoundBtn.style.display = 'none'; scannedNames = []; }
+    if (failed.length) notify('Не удалось удалить: ' + failed.join(', '));
+    else { notify('Все найденные службы удалены.'); if (serviceList) serviceList.innerHTML = '<div class="diag-item diag-ok">✓  Службы удалены</div>'; removeFoundBtn.style.display = 'none'; scannedNames = []; }
 });
 
 // ===== КНОПКИ =====
 btn.addEventListener('click', toggleState);
+document.getElementById('minimizeBtn').addEventListener('click',() => window.electronAPI?.minimizeApp());
 if (closeBtn) closeBtn.addEventListener('click', () => { if (window.electronAPI) window.electronAPI.closeApp(); else window.close(); });
 if (adminBtn) adminBtn.addEventListener('click', openAdminPanel);
 if (closeAdminBtn) closeAdminBtn.addEventListener('click', closeAdminPanel);
 
 if (downloadZapretBtn) downloadZapretBtn.addEventListener('click', async () => {
     const span = downloadZapretBtn.querySelector('span'), o = span.textContent; span.textContent = 'СКАЧИВАНИЕ...'; downloadZapretBtn.disabled = true;
-    try { const r = await window.electronAPI.downloadZapret(); if (r.success) { span.textContent = 'ГОТОВО! ✅'; setTimeout(() => { span.textContent = o; downloadZapretBtn.disabled = false; }, 2500); alert(r.message); } else { span.textContent = 'ОШИБКА ❌'; setTimeout(() => { span.textContent = o; downloadZapretBtn.disabled = false; }, 3000); alert(r.message); } }
-    catch (e) { span.textContent = 'ОШИБКА ❌'; setTimeout(() => { span.textContent = o; downloadZapretBtn.disabled = false; }, 3000); alert('Критическая ошибка: ' + e.message); }
+    try { const r = await window.electronAPI.downloadZapret(); if (r.success) { span.textContent = 'ГОТОВО! ✅'; setTimeout(() => { span.textContent = o; downloadZapretBtn.disabled = false; }, 2500); notify(r.message); } else { span.textContent = 'ОШИБКА ❌'; setTimeout(() => { span.textContent = o; downloadZapretBtn.disabled = false; }, 3000); notify(r.message); } }
+    catch (e) { span.textContent = 'ОШИБКА ❌'; setTimeout(() => { span.textContent = o; downloadZapretBtn.disabled = false; }, 3000); notify('Критическая ошибка: ' + e.message); }
 });
 
 // ПРОВЕРИТЬ ОБНОВЛЕНИЕ ЯДРА
 if (updateBtn) updateBtn.addEventListener('click', async () => {
     const span = updateBtn.querySelector('span'), o = span.textContent; span.textContent = 'ПРОВЕРКА...'; updateBtn.disabled = true;
-    try { const r = await window.electronAPI.checkUpdates(); if (r.success) { if (r.hasUpdate) { alert(`🔄 ${r.message}`); span.textContent = 'ЕСТЬ ОБНОВЛЕНИЕ'; } else { alert(`✅ ${r.message}`); span.textContent = 'АКТУАЛЬНО ✅'; } } else { alert(`❌ ${r.message}`); span.textContent = 'ОШИБКА ❌'; } }
-    catch (e) { alert('Ошибка сети: ' + e.message); span.textContent = 'ОШИБКА ❌'; }
+    try { const r = await window.electronAPI.checkUpdates(); if (r.success) { if (r.hasUpdate) { notify(`🔄 ${r.message}`); span.textContent = 'ЕСТЬ ОБНОВЛЕНИЕ'; } else { notify(`✅ ${r.message}`); span.textContent = 'АКТУАЛЬНО ✅'; } } else { notify(`❌ ${r.message}`); span.textContent = 'ОШИБКА ❌'; } }
+    catch (e) { notify('Ошибка сети: ' + e.message); span.textContent = 'ОШИБКА ❌'; }
     setTimeout(() => { span.textContent = o; updateBtn.disabled = false; }, 2500);
 });
 
@@ -191,11 +180,11 @@ if (updateAppBtn) updateAppBtn.addEventListener('click', async () => {
     const span = updateAppBtn.querySelector('span'), o = span.textContent; span.textContent = 'ПРОВЕРКА...'; updateAppBtn.disabled = true;
     try {
         const r = await window.electronAPI.checkAppUpdate();
-        if (!r.success) { alert(`❌ ${r.message}`); span.textContent = 'ОШИБКА ❌'; }
-        else if (r.configured === false) { alert(r.message); span.textContent = 'ИСТОЧНИК НЕ НАСТРОЕН'; }
-        else if (!r.hasUpdate) { alert(`✅ ${r.message}`); span.textContent = 'АКТУАЛЬНО ✅'; }
+        if (!r.success) { notify(`❌ ${r.message}`); span.textContent = 'ОШИБКА ❌'; }
+        else if (r.configured === false) { notify(r.message); span.textContent = 'ИСТОЧНИК НЕ НАСТРОЕН'; }
+        else if (!r.hasUpdate) { notify(`✅ ${r.message}`); span.textContent = 'АКТУАЛЬНО ✅'; }
         else if (!r.canApply) {
-            alert(`${r.message}\n\nСкачайте полный установщик из GitHub Releases.`);
+            notify(`${r.message}\n\nСкачайте полный установщик из GitHub Releases.`);
             span.textContent = 'ЕСТЬ ОБНОВЛЕНИЕ';
         } else {
             if (confirm(`${r.message}\n\nСкачать проверенный установщик? Godji закроется, затем завершите обновление в мастере установки.`)) {
@@ -204,11 +193,11 @@ if (updateAppBtn) updateAppBtn.addEventListener('click', async () => {
                 testProgressFill.style.width = '0%'; testProgressText.textContent = 'СКАЧИВАНИЕ...';
                 const res = await window.electronAPI.applyAppUpdate();
                 appUpdating = false; testProgressContainer.style.display = 'none';
-                if (res.success) { alert(res.message); if (window.electronAPI) window.electronAPI.closeApp(); }
-                else { alert(`❌ ${res.message}`); span.textContent = 'ОШИБКА ❌'; }
+                if (res.success) { notify(res.message); if (window.electronAPI) window.electronAPI.closeApp(); }
+                else { notify(`❌ ${res.message}`); span.textContent = 'ОШИБКА ❌'; }
             } else { span.textContent = 'ЕСТЬ ОБНОВЛЕНИЕ'; }
         }
-    } catch (e) { appUpdating = false; testProgressContainer.style.display = 'none'; alert('Ошибка: ' + e.message); span.textContent = 'ОШИБКА ❌'; }
+    } catch (e) { appUpdating = false; testProgressContainer.style.display = 'none'; notify('Ошибка: ' + e.message); span.textContent = 'ОШИБКА ❌'; }
     setTimeout(() => { span.textContent = o; updateAppBtn.disabled = false; }, 2500);
 });
 
@@ -221,23 +210,27 @@ if (window.electronAPI && window.electronAPI.onAppUpdateProgress) {
     });
 }
 
+let testProgressOff, testCompleteOff;
+function releaseTestListeners() {testProgressOff?.();testCompleteOff?.();testProgressOff = null;testCompleteOff = null;}
 if (testBtn) testBtn.addEventListener('click', async () => {
+    releaseTestListeners();
     const span = testBtn.querySelector('span'), o = span.textContent; span.textContent = 'ТЕСТИРОВАНИЕ...'; testBtn.disabled = true;
     testProgressContainer.style.display = 'block'; testProgressFill.style.width = '0%'; testProgressText.textContent = '0%';
-    window.electronAPI.onTestProgress((p) => { testProgressFill.style.width = p + '%'; testProgressText.textContent = p + '%'; });
-    window.electronAPI.onTestComplete((r) => { testProgressContainer.style.display = 'none'; if (r.success) { alert(`✅ Тестирование завершено!\n\nЛучший протокол: ${r.bestConfig}\n\nКнопка Godji теперь использует его.`); span.textContent = 'ТЕСТ ЗАВЕРШЕН ✅'; } else { alert(`❌ ${r.message}`); span.textContent = 'ОШИБКА ❌'; } setTimeout(() => { span.textContent = o; testBtn.disabled = false; }, 3000); });
-    try { const r = await window.electronAPI.runTests(); if (!r.success) { testProgressContainer.style.display = 'none'; alert(`❌ ${r.message}`); span.textContent = 'ОШИБКА ❌'; setTimeout(() => { span.textContent = o; testBtn.disabled = false; }, 3000); } }
-    catch (e) { testProgressContainer.style.display = 'none'; alert('Ошибка: ' + e.message); span.textContent = 'ОШИБКА ❌'; setTimeout(() => { span.textContent = o; testBtn.disabled = false; }, 3000); }
+    testProgressOff = window.electronAPI.onTestProgress((p) => { testProgressFill.style.width = p + '%'; testProgressText.textContent = p + '%'; });
+    testCompleteOff = window.electronAPI.onTestComplete((r) => { releaseTestListeners(); testProgressContainer.style.display = 'none'; if (r.success) { notify(`✅ Тестирование завершено!\n\nЛучший протокол: ${r.bestConfig}\n\nКнопка Godji теперь использует его.`); span.textContent = 'ТЕСТ ЗАВЕРШЕН ✅'; } else { notify(`❌ ${r.message}`); span.textContent = 'ОШИБКА ❌'; } setTimeout(() => { span.textContent = o; testBtn.disabled = false; }, 3000); });
+    try { const r = await window.electronAPI.runTests(); if (!r.success) { releaseTestListeners(); testProgressContainer.style.display = 'none'; notify(`❌ ${r.message}`); span.textContent = 'ОШИБКА ❌'; setTimeout(() => { span.textContent = o; testBtn.disabled = false; }, 3000); } }
+    catch (e) { releaseTestListeners(); testProgressContainer.style.display = 'none'; notify('Ошибка: ' + e.message); span.textContent = 'ОШИБКА ❌'; setTimeout(() => { span.textContent = o; testBtn.disabled = false; }, 3000); }
 });
 
-setTimeout(pollStatus, 600);
-setInterval(pollStatus, 5000);
-document.addEventListener('visibilitychange', () => {
-    document.body.classList.toggle('animations-paused', document.hidden);
-    if (!document.hidden) pollStatus();
-});
-container.addEventListener('animationend', (event) => {
-    if (event.animationName === 'ignitionWave') container.classList.remove('ignition');
-});
-console.log('Godji Zapret UI загружен');
-console.log('Electron API доступен:', !!window.electronAPI);
+const statusPoller = window.createActivityPoller({poll:pollStatus,visible:() => !document.hidden && document.hasFocus(),interval:() => adminPanel.classList.contains('active') ? 15000 : 10000});
+function updateActivity() {
+    const paused = document.hidden || !document.hasFocus();
+    document.body.classList.toggle('animations-paused',paused);
+    if(paused) statusPoller.pause(); else statusPoller.wake();
+}
+document.addEventListener('visibilitychange',updateActivity);
+window.addEventListener('focus',updateActivity);
+window.addEventListener('blur',updateActivity);
+window.addEventListener('pagehide',() => statusPoller.stop());
+container.addEventListener('animationend',event => {if(event.animationName === 'coreIgnition') container.classList.remove('ignition');});
+updateActivity();

@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Godji Zapret</title>
-    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-    <button class="close-btn" id="closeBtn"></button>
+    <button class="minimize-btn" id="minimizeBtn" aria-label="Свернуть">−</button>
+    <button class="close-btn" id="closeBtn" aria-label="Закрыть"></button>
+    <div class="window-caption"><span class="brand-mark">G</span> GODJI <span>NETWORK CONTROL</span></div>
 
     <div class="app-window">
         <div class="drag-region"></div>
@@ -17,12 +18,18 @@
             <span class="dot"></span><span class="dot"></span><span class="dot"></span>
         </button>
         <div class="button-container" id="buttonContainer">
-            <div class="glow-outer"></div>
-            <div class="glow-ring"></div>
-            <div class="particles" id="particles"></div>
-            <button class="power-btn" id="powerBtn" aria-label="Включить защиту" aria-pressed="false"><span class="logo-text">Godji</span></button>
+            <div class="glow-outer" aria-hidden="true"></div>
+            <div class="core-dial" aria-hidden="true"></div>
+            <svg class="energy-tracks" viewBox="0 0 300 300" aria-hidden="true">
+                <defs><linearGradient id="coreSpectrum"><stop stop-color="#62edff"/><stop offset=".5" stop-color="#878aff"/><stop offset="1" stop-color="#d88aff"/></linearGradient></defs>
+                <circle class="track-base" cx="150" cy="150" r="122"/>
+                <g class="track-orbit"><circle class="track-arc" cx="150" cy="150" r="122"/><circle class="orbit-node" cx="150" cy="28" r="3"/></g>
+                <g class="track-counter"><circle cx="150" cy="150" r="134"/><circle class="orbit-node" cx="150" cy="284" r="2"/></g>
+            </svg>
+            <div class="particles" id="particles" aria-hidden="true"></div>
+            <button class="power-btn" id="powerBtn" aria-label="Включить защиту" aria-pressed="false" aria-busy="false"><span class="core-label">CONNECTION CORE</span><span class="logo-text">Godji</span><span class="core-indicator" aria-hidden="true"></span></button>
             <div class="telegram-summary" id="telegramSummary" role="status">TELEGRAM · ВЫКЛЮЧЕН</div>
-            <div class="status" id="statusText">НАЖМИТЕ ДЛЯ ВКЛЮЧЕНИЯ</div>
+            <div class="status" id="statusText" role="status" aria-live="polite">НАЖМИТЕ ДЛЯ ВКЛЮЧЕНИЯ</div>
         </div>
     </div>
 
@@ -126,6 +133,8 @@
         </div>
     </div>
 
+    <button class="notice" id="notice" role="status" aria-label="Закрыть уведомление" hidden></button>
+    <script src="activity-poller.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
