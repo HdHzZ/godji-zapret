@@ -8,6 +8,7 @@ function listen(channel, callback) {
 contextBridge.exposeInMainWorld('electronAPI', {
   telegramStatus: () => ipcRenderer.invoke('telegram-status'),
   telegramAction: (action) => ipcRenderer.invoke('telegram-action', action),
+  appVersion: () => ipcRenderer.invoke('get-app-version'),
   closeApp: () => ipcRenderer.send('close-app'),
   minimizeApp: () => ipcRenderer.send('minimize-app'),
   toggleZapret: (status) => ipcRenderer.invoke('toggle-zapret', status),

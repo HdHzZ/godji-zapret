@@ -1,4 +1,4 @@
-// Генератор иконки Godji (кольцо cyan -> magenta) в чистом Node, без зависимостей.
+// Генератор иконки Godji в палитре интерфейса, без зависимостей.
 // Запуск: npm run icon  ->  создаёт assets/icon.ico (256x256)
 const fs = require('fs');
 const path = require('path');
@@ -48,9 +48,9 @@ function makePng(rgba) {
 // ---- рисуем кольцо ----
 const rgba = Buffer.alloc(SIZE * SIZE * 4);
 const cx = SIZE / 2, cy = SIZE / 2;
-const R_OUT = 118, R_IN = 76;
+const R_OUT = 118, R_IN = 106;
 const lerp = (a, b, t) => a + (b - a) * t;
-const stops = [[0, 229, 255], [0, 119, 255], [255, 0, 212], [0, 229, 255]]; // cyan -> blue -> magenta -> cyan
+const stops = [[130, 223, 201], [100, 178, 169], [79, 137, 139], [130, 223, 201]];
 
 for (let y = 0; y < SIZE; y++) {
   for (let x = 0; x < SIZE; x++) {
@@ -66,7 +66,11 @@ for (let y = 0; y < SIZE; y++) {
       if (dist > R_OUT - 1) a = Math.round(255 * Math.max(0, R_OUT + 1 - dist));      // сглаживание внешнего края
       if (dist < R_IN + 1) a = Math.round(Math.min(a, 255 * Math.max(0, dist - (R_IN - 1)))); // внутреннего
     } else if (dist < R_IN - 1) {
-      r = 15; g = 15; b = 26; a = 255; // тёмный центр
+      r = 17; g = 22; b = 29; a = 255;
+      const arc = dy < -25 && Math.abs(dx) < 27 ? 0 : Math.max(0, Math.min(1, 6 - Math.abs(dist - 46)));
+      const stemDistance = Math.hypot(dx, dy - Math.max(-58, Math.min(-7, dy)));
+      const glyph = Math.max(arc, Math.max(0, Math.min(1, 6 - stemDistance)));
+      r = lerp(r, 166, glyph); g = lerp(g, 236, glyph); b = lerp(b, 217, glyph);
     }
     rgba[idx] = r; rgba[idx + 1] = g; rgba[idx + 2] = b; rgba[idx + 3] = a;
   }

@@ -1,140 +1,71 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Godji Zapret</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Godji Zapret</title><link rel="stylesheet" href="styles.css"></head>
 <body>
-
-    <button class="minimize-btn" id="minimizeBtn" aria-label="Свернуть">−</button>
-    <button class="close-btn" id="closeBtn" aria-label="Закрыть"></button>
-    <div class="window-caption"><span class="brand-mark">G</span> GODJI <span>NETWORK CONTROL</span></div>
-
-    <div class="app-window">
-        <div class="drag-region"></div>
-        <button class="admin-btn" id="adminBtn">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-        </button>
-        <div class="button-container" id="buttonContainer">
-            <div class="glow-outer" aria-hidden="true"></div>
-            <div class="core-dial" aria-hidden="true"></div>
-            <svg class="energy-tracks" viewBox="0 0 300 300" aria-hidden="true">
-                <defs><linearGradient id="coreSpectrum"><stop stop-color="#62edff"/><stop offset=".5" stop-color="#878aff"/><stop offset="1" stop-color="#d88aff"/></linearGradient></defs>
-                <circle class="track-base" cx="150" cy="150" r="122"/>
-                <g class="track-orbit"><circle class="track-arc" cx="150" cy="150" r="122"/><circle class="orbit-node" cx="150" cy="28" r="3"/></g>
-                <g class="track-counter"><circle cx="150" cy="150" r="134"/><circle class="orbit-node" cx="150" cy="284" r="2"/></g>
-            </svg>
-            <div class="particles" id="particles" aria-hidden="true"></div>
-            <button class="power-btn" id="powerBtn" aria-label="Включить защиту" aria-pressed="false" aria-busy="false"><span class="core-label">CONNECTION CORE</span><span class="logo-text">Godji</span><span class="core-indicator" aria-hidden="true"></span></button>
-            <div class="telegram-summary" id="telegramSummary" role="status">TELEGRAM · ВЫКЛЮЧЕН</div>
-            <div class="status" id="statusText" role="status" aria-live="polite">НАЖМИТЕ ДЛЯ ВКЛЮЧЕНИЯ</div>
-        </div>
+<svg class="icon-library" aria-hidden="true"><defs>
+<symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8M7 5.7a8 8 0 1 0 10 0"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></symbol>
+<symbol id="i-telegram" viewBox="0 0 24 24"><path d="m21 4-4 16-6-5-4 3 1-6-5-2 18-6Z"/><path d="m8 12 9-5-6 8"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+</defs></svg>
+<header class="titlebar"><div class="brand"><span class="brand-mark">G</span><span>Godji<span class="brand-secondary">Zapret</span></span></div><div class="window-controls"><button class="minimize-btn" id="minimizeBtn" aria-label="Свернуть">−</button><button class="close-btn" id="closeBtn" aria-label="Закрыть">×</button></div></header>
+<main class="app-window" id="homeView">
+    <section class="connection-heading"><div class="eyebrow">Подключение</div><h1 id="statusText" role="status" aria-live="polite">Готово к подключению</h1><p id="connectionHint">Запустите Zapret и Telegram одним нажатием.</p></section>
+    <div class="button-container" id="buttonContainer">
+        <div class="glow-outer" aria-hidden="true"></div>
+        <svg class="energy-tracks" viewBox="0 0 280 280" aria-hidden="true"><circle class="track-base" cx="140" cy="140" r="115"/><g class="track-orbit"><circle class="track-arc" cx="140" cy="140" r="115"/><circle class="orbit-node" cx="140" cy="25" r="3"/></g><circle class="track-inner" cx="140" cy="140" r="101"/></svg>
+        <button class="power-btn" id="powerBtn" aria-label="Включить защиту" aria-pressed="false" aria-busy="false"><svg class="power-icon icon" aria-hidden="true"><use href="#i-power"/></svg><span id="powerLabel">Подключить</span></button>
     </div>
-
-    <div class="admin-panel" id="adminPanel">
-        <button class="close-admin-btn" id="closeAdminBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-        <div class="admin-panel-content">
-            <h2 class="admin-title">ПАНЕЛЬ УПРАВЛЕНИЯ</h2>
-
-
-                <div class="settings-section telegram-section">
-                    <div class="settings-title">TELEGRAM · TG WS PROXY</div>
-                    <div class="telegram-state" id="telegramStatus" role="status">Проверка состояния…</div>
-                    <div class="telegram-controls">
-                        <button class="mini-btn" data-tg="start">ЗАПУСТИТЬ</button>
-                        <button class="mini-btn" data-tg="stop">ОСТАНОВИТЬ</button>
-                        <button class="mini-btn" data-tg="restart">ПЕРЕЗАПУСТИТЬ</button>
-                        <button class="mini-btn" data-tg="connect">ПОДКЛЮЧИТЬ TELEGRAM</button>
-                        <button class="mini-btn" data-tg="settings">НАСТРОЙКИ</button>
-                        <button class="mini-btn" data-tg="logs">ЖУРНАЛ</button>
-                    </div>
-                    <p class="telegram-hint">Кнопка Godji управляет Zapret и Telegram-прокси вместе. При первом подключении подтвердите прокси в Telegram.</p>
-                </div>
-            <div class="admin-buttons" id="adminButtons">
-                <button class="admin-action-btn update-btn" id="updateBtn">
-                    <div class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></div>
-                    <span>ПРОВЕРИТЬ ОБНОВЛЕНИЕ</span><div class="btn-glow"></div>
-                </button>
-                <button class="admin-action-btn app-btn" id="updateAppBtn">
-                    <div class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="M8 8l4-4 4 4"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg></div>
-                    <span>ОБНОВЛЕНИЕ GODJI</span><div class="btn-glow"></div>
-                </button>
-                <button class="admin-action-btn test-btn" id="testBtn">
-                    <div class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg></div>
-                    <span>ТЕСТ ПРОТОКОЛОВ</span><div class="btn-glow"></div>
-                </button>
-                <button class="admin-action-btn download-btn" id="downloadZapretBtn">
-                    <div class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
-                    <span>СКАЧАТЬ ZAPRET</span><div class="btn-glow"></div>
-                </button>
+    <section class="component-grid" aria-label="Состояние компонентов">
+        <div class="component-card" id="zapretCard" data-state="off"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><div><h2>Zapret</h2><p id="zapretSummary">Отключён</p></div><span class="state-dot" aria-hidden="true"></span></div>
+        <div class="component-card" id="telegramCard" data-state="off"><svg class="icon" aria-hidden="true"><use href="#i-telegram"/></svg><div><h2>Telegram</h2><p id="telegramSummary" role="status">Отключён</p></div><span class="state-dot" aria-hidden="true"></span></div>
+    </section>
+    <button class="settings-entry" id="adminBtn" aria-controls="adminPanel" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span>Настройки и управление</span><svg class="icon chevron" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+    <footer class="home-footer"><span>Локально на вашем компьютере</span><span class="app-version">Godji</span></footer>
+</main>
+<section class="admin-panel" id="adminPanel" aria-label="Настройки" aria-hidden="true" inert>
+    <div class="settings-header"><button class="back-btn" id="closeAdminBtn"><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg><span>Назад</span></button><h2>Настройки</h2><span class="header-spacer"></span></div>
+    <nav class="settings-tabs" aria-label="Разделы настроек" role="tablist">
+        <button role="tab" id="tab-telegram" data-tab="telegram" aria-selected="true" aria-controls="page-telegram">Telegram</button>
+        <button role="tab" id="tab-zapret" data-tab="zapret" aria-selected="false" aria-controls="page-zapret" tabindex="-1">Zapret</button>
+        <button role="tab" id="tab-updates" data-tab="updates" aria-selected="false" aria-controls="page-updates" tabindex="-1">Обновления</button>
+        <button role="tab" id="tab-tools" data-tab="tools" aria-selected="false" aria-controls="page-tools" tabindex="-1">Проверки</button>
+    </nav>
+    <div class="test-progress-container" id="testProgressContainer" style="display:none;" role="status"><div class="test-progress-bar"><div class="test-progress-fill" id="testProgressFill"></div></div><div class="test-progress-text" id="testProgressText">0%</div></div>
+    <div class="admin-panel-content">
+        <section class="tab-page" role="tabpanel" id="page-telegram" aria-labelledby="tab-telegram">
+            <div class="page-heading"><h3>Telegram-прокси</h3><p>Управление локальным подключением Telegram Desktop.</p></div>
+            <div class="settings-section"><div class="section-heading"><span class="section-icon"><svg class="icon" aria-hidden="true"><use href="#i-telegram"/></svg></span><div><h4>TG WS Proxy</h4><p id="telegramStatus" class="telegram-state" role="status">Проверка состояния…</p></div></div>
+                <div class="telegram-controls"><button class="mini-btn primary-btn" data-tg="start">Запустить</button><button class="mini-btn" data-tg="stop">Остановить</button><button class="mini-btn" data-tg="restart">Перезапустить</button><button class="mini-btn" data-tg="connect">Подключить Telegram</button><button class="mini-btn quiet-btn" data-tg="settings">Файл настроек</button><button class="mini-btn quiet-btn" data-tg="logs">Открыть журнал</button></div>
             </div>
-
-            <div class="test-progress-container" id="testProgressContainer" style="display: none;">
-                <div class="test-progress-bar"><div class="test-progress-fill" id="testProgressFill"></div></div>
-                <div class="test-progress-text" id="testProgressText">0%</div>
+            <div class="info-note"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><p>При первом подключении подтвердите прокси в Telegram. После этого основная кнопка Godji будет запускать оба компонента вместе.</p></div>
+        </section>
+        <section class="tab-page" role="tabpanel" id="page-zapret" aria-labelledby="tab-zapret" hidden>
+            <div class="page-heading"><h3>Параметры Zapret</h3><p>Изменения фильтров применяются после переподключения.</p></div>
+            <div id="adminSettings">
+                <div class="settings-section"><h4>Стратегия обхода</h4><div class="strategy-row"><select class="strategy-select" id="strategySelect" aria-label="Стратегия обхода"></select><button class="mini-btn primary-btn" id="applyStrategy">Применить</button></div><p class="current-strategy" id="currentStrategy">Текущая: —</p></div>
+                <div class="settings-section"><h4>Игровой трафик</h4><p class="field-hint">Какие игровые соединения обрабатывать.</p><div class="seg" id="gameSeg" aria-label="Игровой трафик"><button class="seg-btn" data-mode="disabled">Выкл.</button><button class="seg-btn" data-mode="all">Весь</button><button class="seg-btn" data-mode="tcp">TCP</button><button class="seg-btn" data-mode="udp">UDP</button></div></div>
+                <div class="settings-section"><h4>Фильтр IPSet</h4><div class="seg" id="ipsetSeg" aria-label="Режим IPSet"><button class="seg-btn" data-mode="loaded">По списку</button><button class="seg-btn" data-mode="none">Отключён</button><button class="seg-btn" data-mode="any">Любой IP</button></div><button class="mini-btn wide" id="updateIpsetBtn">Обновить список адресов</button></div>
             </div>
-
-            <div class="admin-settings" id="adminSettings">
-                <div class="settings-section">
-                    <div class="settings-title">СТРАТЕГИЯ ОБХОДА</div>
-                    <div class="strategy-row">
-                        <select class="strategy-select" id="strategySelect"></select>
-                        <button class="mini-btn" id="applyStrategy">ПРИМЕНИТЬ</button>
-                    </div>
-                    <div class="current-strategy" id="currentStrategy">Текущая: —</div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="settings-title">GAME FILTER</div>
-                    <div class="seg" id="gameSeg">
-                        <button class="seg-btn" data-mode="disabled">OFF</button>
-                        <button class="seg-btn" data-mode="all">ALL</button>
-                        <button class="seg-btn" data-mode="tcp">TCP</button>
-                        <button class="seg-btn" data-mode="udp">UDP</button>
-                    </div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="settings-title">IPSET FILTER</div>
-                    <div class="seg" id="ipsetSeg">
-                        <button class="seg-btn" data-mode="loaded">LOADED</button>
-                        <button class="seg-btn" data-mode="none">NONE</button>
-                        <button class="seg-btn" data-mode="any">ANY</button>
-                    </div>
-                    <button class="mini-btn wide" id="updateIpsetBtn">ОБНОВИТЬ СПИСОК IPSET</button>
-                </div>
-
-                <div class="settings-section">
-                    <div class="settings-title">HOSTS</div>
-                    <button class="mini-btn wide" id="updateHostsBtn">ОБНОВИТЬ HOSTS</button>
-                </div>
-
-                <div class="settings-section">
-                    <div class="settings-title">ДИАГНОСТИКА СИСТЕМЫ</div>
-                    <button class="admin-action-btn test-btn diag-trigger" id="diagBtn">
-                        <div class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c2.12 0 4.07.74 5.61 1.97"/></svg></div>
-                        <span>ЗАПУСТИТЬ ДИАГНОСТИКУ</span><div class="btn-glow"></div>
-                    </button>
-                    <div class="diag-list" id="diagResults"></div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="settings-title">СЛУЖБЫ СИСТЕМЫ</div>
-                    <button class="mini-btn wide danger-btn" id="removeServiceBtn">УДАЛИТЬ СЕРВИС ZAPRET</button>
-                    <button class="mini-btn wide scan-btn" id="scanServicesBtn">СКАН КОНФЛИКТУЮЩИХ СЛУЖБ</button>
-                    <div class="service-list" id="serviceList"></div>
-                    <button class="mini-btn wide danger-btn" id="removeFoundBtn" style="display:none;">УДАЛИТЬ ВСЕ НАЙДЕННЫЕ</button>
-                </div>
-            </div>
-        </div>
+        </section>
+        <section class="tab-page" role="tabpanel" id="page-updates" aria-labelledby="tab-updates" hidden>
+            <div class="page-heading"><h3>Обновления</h3><p>Приложение и ядро обновляются отдельно.</p></div>
+            <div class="settings-section" id="adminButtons"><div class="section-heading"><span class="section-icon"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></span><div><h4>Godji <span class="app-version"></span></h4><p class="field-hint">Интерфейс и компоненты приложения.</p></div></div><button class="admin-action-btn primary-btn" id="updateAppBtn"><span>Проверить обновления Godji</span></button></div>
+            <div class="settings-section"><div class="section-heading"><span class="section-icon"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span><div><h4>Ядро Zapret</h4><p class="field-hint">Последняя версия от Flowseal.</p></div></div><div class="action-row"><button class="admin-action-btn" id="updateBtn"><span>Проверить версию</span></button><button class="admin-action-btn" id="downloadZapretBtn"><span>Скачать ядро</span></button></div></div>
+            <div class="info-note"><p>Обновления загружаются с GitHub. Перед заменой ядра выключите подключение.</p></div>
+        </section>
+        <section class="tab-page" role="tabpanel" id="page-tools" aria-labelledby="tab-tools" hidden>
+            <div class="page-heading"><h3>Проверки и диагностика</h3><p>Если подключение работает нестабильно.</p></div>
+            <div class="settings-section"><h4>Состояние системы</h4><p class="field-hint">Проверка служб и возможных конфликтов.</p><button class="admin-action-btn" id="diagBtn"><span>Запустить диагностику</span></button><div class="diag-list" id="diagResults"></div></div>
+            <div class="settings-section"><h4>Подбор стратегии</h4><p class="field-hint">Тест может занять несколько минут.</p><button class="admin-action-btn" id="testBtn"><span>Протестировать стратегии</span></button></div>
+            <details class="settings-section advanced-section"><summary>Дополнительные действия<svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></summary><div class="advanced-content"><button class="mini-btn wide" id="updateHostsBtn">Проверить hosts</button><button class="mini-btn wide" id="scanServicesBtn">Проверить конфликты служб</button><div class="service-list" id="serviceList"></div><button class="mini-btn wide danger-btn" id="removeFoundBtn" style="display:none;">Удалить свои службы</button><button class="mini-btn wide danger-btn" id="removeServiceBtn">Остановить своё ядро и службу</button></div></details>
+        </section>
     </div>
-
-    <button class="notice" id="notice" role="status" aria-label="Закрыть уведомление" hidden></button>
-    <script src="activity-poller.js"></script>
-    <script src="script.js"></script>
-</body>
-</html>
+</section>
+<button class="notice" id="notice" role="status" aria-label="Закрыть уведомление" hidden></button>
+<script src="activity-poller.js"></script><script src="script.js"></script>
+</body></html>

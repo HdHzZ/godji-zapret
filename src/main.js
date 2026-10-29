@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, net, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -421,7 +421,8 @@ const telegramProxy = createTelegramProxy({
 });
 let mainWindow;
 function createWindow() {
-  mainWindow = new BrowserWindow({ width: 456, height: 576, frame: false, transparent: false, backgroundColor: '#0b0f1b', maximizable: false, resizable: false, hasShadow: false, webPreferences: { preload: path.join(__dirname, 'preload.js'), nodeIntegration: false, contextIsolation: true, backgroundThrottling: true } });
+  const area = screen.getPrimaryDisplay().workAreaSize;
+  mainWindow = new BrowserWindow({ width: Math.min(480,area.width - 24), height: Math.min(680,area.height - 24), frame: false, transparent: false, backgroundColor: '#11161d', maximizable: false, resizable: false, hasShadow: false, webPreferences: { preload: path.join(__dirname, 'preload.js'), nodeIntegration: false, contextIsolation: true, backgroundThrottling: true } });
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html')); mainWindow.setMenuBarVisibility(false);
   mainWindow.webContents.once('did-finish-load',() => {try {os.setPriority(mainWindow.webContents.getOSProcessId(),os.constants.priority.PRIORITY_BELOW_NORMAL);} catch {}});
 }
@@ -444,6 +445,7 @@ app.whenReady().then(async () => {
 ipcMain.handle('download-zapret', () => downloadAndExtractZapret());
 ipcMain.handle('check-updates', () => checkForUpdates());
 ipcMain.handle('run-tests', () => runTests());
+ipcMain.handle('get-app-version',() => app.getVersion());
 ipcMain.handle('check-status',async () => ({running:await checkZapretRunning()}));
 ipcMain.handle('get-game-filter', () => getGameFilter());
 ipcMain.handle('set-game-filter', (e, mode) => setGameFilter(mode));
